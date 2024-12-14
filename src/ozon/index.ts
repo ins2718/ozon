@@ -13,6 +13,7 @@ export default class Ozon {
     loaded: boolean = false;
     speechSynthesisUtterance: SpeechSynthesisUtterance = null;
     boxNum: number = 1;
+    lastUpdate: number = 0;
 
     constructor(pageWorker: PageWorker) {
         this.pageWorker = pageWorker;
@@ -44,6 +45,11 @@ export default class Ozon {
         return item.barcode[0] === "i" ? item.barcode : item.id.toString();
     }
     async updateItems() {
+        const now = Date.now();
+        if (now - this.lastUpdate < 10000) {
+            return;
+        }
+        this.lastUpdate = now;
         const token = this.checkToken();
         if (!token) {
             return;
@@ -103,7 +109,7 @@ export default class Ozon {
         }
         return null;
     }
-    checkCode(code: string, type: BarcodeType) {
+    checkCode(code: string, type: BarcodeType): boolean {
         if (type === "ozonBoxCodeTemplate") {
             this.pageWorker.send(code);
             setTimeout(() => this.updateItems(), 2000);
@@ -122,7 +128,7 @@ export default class Ozon {
                     this.updateItems();
                     if (this.pendingBoxes.length > 0) {
                         (new Audio(chrome.runtime.getURL("sounds/warning.mp3"))).play();
-                        return;
+                        return true;
                     }
                     fetch("https://api.limpiarmuebles.pro/ozon-codes", {
                         method: 'POST',
