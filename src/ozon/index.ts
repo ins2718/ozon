@@ -12,7 +12,7 @@ export default class Ozon {
     storeId: number = null;
     loaded: boolean = false;
     speechSynthesisUtterance: SpeechSynthesisUtterance = null;
-    boxNum: number = 1;
+    boxNum: number = 0;
     lastUpdate: number = 0;
 
     constructor(pageWorker: PageWorker) {
