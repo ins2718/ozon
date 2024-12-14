@@ -18,7 +18,7 @@ export default class PageWorker {
     data: string = "";
     lastUpdate: number = 0;
 
-    updateOptions(options: Options) {
+    updateOptions(options: Options = {}) {
         if (!("ozon" in options)) {
             options.ozon = true;
         }
