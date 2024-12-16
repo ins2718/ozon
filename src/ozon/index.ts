@@ -34,9 +34,14 @@ export default class Ozon {
         if (!token) {
             return null;
         }
+        this.boxNum = 0;
         const storeId = parsedItem.StoreId;
         if (storeId) {
             this.storeId = storeId;
+            const boxes = { 1020000952515000: 315 };
+            if (storeId in boxes) {
+                this.boxNum = boxes[this.boxNum];
+            }
         }
         this.token = token;
         return token;
