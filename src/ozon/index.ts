@@ -40,7 +40,7 @@ export default class Ozon {
             this.storeId = storeId;
             const boxes = { 1020000952515000: 315, 1020002141586000: 4 };
             if (storeId in boxes) {
-                this.boxNum = boxes[this.boxNum];
+                this.boxNum = boxes[storeId];
             }
         }
         this.token = token;
