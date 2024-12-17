@@ -63,7 +63,7 @@ interface OzonCarriage {
     receivedCargoPlacesCountUpdateDeadline: string;
     receivedPostingsCount: number;
     sourcePlaceName: string;
-    state: string;
+    state: "Send" | "Recived";
     totalPostingsCount: number;
 }
 

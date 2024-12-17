@@ -68,6 +68,9 @@ export default class Ozon {
         this.carriages = (await ozonRequest<OzonCarriages>("https://turbo-pvz.ozon.ru/api/inbound/Carriages", token))?.carriages;
         this.pendingBoxes = [];
         await Promise.all(this.carriages.map(async carriage => {
+            if (carriage.state !== "Recived") {
+                return;
+            }
             return (await ozonRequest<OzonCarriageArticles>(`https://turbo-pvz.ozon.ru/api/inbound/Carriages/${carriage.id}/content`, token))?.articles.forEach(article => {
                 if (article.type === "ArticleBoxTare" && article.state === "Banded") {
                     this.pendingBoxes.push({ ...article });
