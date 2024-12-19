@@ -38,7 +38,7 @@ export default class Ozon {
         const storeId = parsedItem.StoreId;
         if (storeId) {
             this.storeId = storeId;
-            const boxes = { 1020000952515000: 315, 1020002141586000: 4 };
+            const boxes = { 1020000952515000: 315, 1020002141586000: 4, 15592743073000: 31 };
             if (storeId in boxes) {
                 this.boxNum = boxes[storeId];
             }
