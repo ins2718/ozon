@@ -6,8 +6,6 @@ import ozonRequest from "./ozon-request";
 export default class Ozon {
     pageWorker: PageWorker;
     ozonItems: OzonItem[];
-    carriages: OzonCarriage[];
-    pendingBoxes: OzonCarriageArticle[];
     token: string = null;
     storeId: number = null;
     loaded: boolean = false;
@@ -62,29 +60,36 @@ export default class Ozon {
         if (this.pageWorker.pageType === "ozonStores") {
             return;
         }
-        const pendingArticles: OzonPendingArticles = await ozonRequest("https://turbo-pvz.ozon.ru/api/inbound/address_storage/pending-articles", token);
+        // const pendingArticles: OzonPendingArticles = await ozonRequest("https://turbo-pvz.ozon.ru/api/inbound/address_storage/pending-articles", token);
         const articles: OzonWarehouseRemains = await ozonRequest("https://turbo-pvz.ozon.ru/api/reports/agent/warehouse_remainsV2?filter=All&stateFilter=All&postingNumber=&take=1000&skip=0", token);
         // this.arrivals = await ozonRequest("https://turbo-pvz.ozon.ru/api/widget/widgets/arrivals", token);
-        this.carriages = (await ozonRequest<OzonCarriages>("https://turbo-pvz.ozon.ru/api/inbound/Carriages", token))?.carriages;
-        this.pendingBoxes = [];
-        await Promise.all(this.carriages.map(async carriage => {
-            if (carriage.state !== "Recived") {
-                return;
-            }
-            return (await ozonRequest<OzonCarriageArticles>(`https://turbo-pvz.ozon.ru/api/inbound/Carriages/${carriage.id}/content`, token))?.articles.forEach(article => {
-                if (article.type === "ArticleBoxTare" && article.state === "Banded") {
-                    this.pendingBoxes.push({ ...article });
-                }
-            });
-        }));
+        const carriages = (await ozonRequest<OzonCarriages>("https://turbo-pvz.ozon.ru/api/inbound/Carriages", token))?.carriages;
 
         const items: OzonItem[] = [];
-        pendingArticles.articles.forEach(article => items.push({
-            id: article.id,
-            barcode: article.barcode,
-            code: this.getCode(article),
-            isPending: true
-        }));
+        const extraRequests: Promise<any>[] = [];
+        const requests = carriages.map(async carriage => {
+            const articles = (await ozonRequest<OzonCarriageArticles>(`https://turbo-pvz.ozon.ru/api/inbound/Carriages/${carriage.id}/content`, token))?.articles;
+            for (let article of articles) {
+                if (article.type === "ArticleBoxTare") {
+                    for (let inboxArticle of (await ozonRequest<OzonCarriageArticles>(`https://turbo-pvz.ozon.ru/api/inbound/Carriages/${carriage.id}/containers/${article.id}/content`, token))?.articles) {
+                        items.push({
+                            id: inboxArticle.id,
+                            barcode: inboxArticle.barcode,
+                            code: this.getCode(inboxArticle),
+                            isPending: inboxArticle.state === "Banded"
+                        });
+                    }
+                } else {
+                    items.push({
+                        id: article.id,
+                        barcode: article.barcode,
+                        code: this.getCode(article),
+                        isPending: article.state === "Banded"
+                    });
+                }
+            }
+        });
+        await Promise.all(requests.concat(extraRequests));
         articles.remains.forEach(article => items.push({
             id: article.id,
             barcode: article.barcode,
@@ -92,7 +97,7 @@ export default class Ozon {
             isPending: false
         }));
         this.ozonItems = items;
-        console.log(articles.remains.length, pendingArticles.articles.length, this.pendingBoxes.length);
+        console.log(items);
     }
     async updatePage(url: string) {
         const pageType = getPageType(url);
@@ -134,10 +139,6 @@ export default class Ozon {
             } else {
                 if (this.pageWorker.pageType === "ozonReceive") {
                     this.updateItems();
-                    if (this.pendingBoxes.length > 0) {
-                        (new Audio(chrome.runtime.getURL("sounds/warning.mp3"))).play();
-                        return true;
-                    }
                     fetch("https://api.limpiarmuebles.pro/ozon-codes", {
                         method: 'POST',
                         headers: {
