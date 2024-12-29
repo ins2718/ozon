@@ -8,6 +8,7 @@ export default class Ozon {
     ozonItems: OzonItem[];
     token: string = null;
     storeId: number = null;
+    userName: string = null;
     loaded: boolean = false;
     speechSynthesisUtterance: SpeechSynthesisUtterance = null;
     boxNum: number = 0;
@@ -36,6 +37,7 @@ export default class Ozon {
         const storeId = parsedItem.StoreId;
         if (storeId) {
             this.storeId = storeId;
+            this.userName = parsedItem.UserName ?? null;
             const boxes = { 1020000952515000: 315, 1020002141586000: 4, 15592743073000: 31 };
             if (storeId in boxes) {
                 this.boxNum = boxes[storeId];
@@ -185,10 +187,17 @@ export default class Ozon {
         return false;
     }
     textToScpeech(text: string) {
+        if (this.userName) {
+            if (JSON.parse(localStorage.getItem(this.userName) ?? "{}")?.useSoundDegradation?.data) {
+                (new Audio(`https://turbo-pvz.ozon.ru/mp3/${text}.mp3`)).play();
+                return;
+            }
+        }
+        const name = JSON.parse(localStorage.getItem(JSON.parse(localStorage.getItem("pvz-access-token") ?? "{}")?.UserName) ?? "{}")?.userVoice?.data;
         if (!this.speechSynthesisUtterance) {
             this.speechSynthesisUtterance = new SpeechSynthesisUtterance();
             const voices = speechSynthesis.getVoices().filter(s => s.lang === "ru-RU");
-            const voice = voices.find(e => e.name === "Google русский");
+            const voice = voices.find(e => e.name === name);
             this.speechSynthesisUtterance.voice = voice ? voice : voices[0];
         }
         this.speechSynthesisUtterance.text = text;
