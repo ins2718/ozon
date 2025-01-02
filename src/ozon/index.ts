@@ -134,7 +134,7 @@ export default class Ozon {
             code = code.replaceAll("ш", "i").replaceAll("Ш", "i").replaceAll("I", "i");
             type = "ozonSmallCodeTemplate";
         }
-        if (["ozonSmallCodeTemplate", "ozonLargeCodeTemplate"].includes(type)) {
+        if (["ozonSmallCodeTemplate", "ozonLargeCodeTemplate", "ozonFreshCodeTemplate"].includes(type)) {
             if (this.findOzonItem(code)) {
                 console.log("found");
                 this.pageWorker.send(code);
@@ -193,7 +193,7 @@ export default class Ozon {
                 return;
             }
         }
-        const name = JSON.parse(localStorage.getItem(JSON.parse(localStorage.getItem("pvz-access-token") ?? "{}")?.UserName) ?? "{}")?.userVoice?.data;
+        const name = JSON.parse(localStorage.getItem(JSON.parse(localStorage.getItem("pvz-access-token") ?? "{}")?.UserName) ?? "{}")?.userVoice?.data ?? "Google русский";
         if (!this.speechSynthesisUtterance) {
             this.speechSynthesisUtterance = new SpeechSynthesisUtterance();
             const voices = speechSynthesis.getVoices().filter(s => s.lang === "ru-RU");

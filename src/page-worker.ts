@@ -35,11 +35,7 @@ export default class PageWorker {
         if (!this.event.isTrusted || this.event.ctrlKey || this.event.altKey || this.ozon.isAccepted()) {
             return true;
         }
-        let template = /^[\d\*\%iIшШ-]$/;
-        if (this.symbol.match(template) || this.symbol === "Enter") {
-            return false;
-        }
-        return true;
+        return false;
     }
     send(data: string = null) {
         data = data ?? this.data;
@@ -47,9 +43,6 @@ export default class PageWorker {
             return;
         }
         this.reset();
-        if (data[0] === "%") {
-            // setTimeout(() => updateOzonInbound(), 2000);
-        }
         data.split('').forEach(key => document.dispatchEvent(new KeyboardEvent('keydown', { key })));
         if (this.symbol === "Enter") {
             document.dispatchEvent(new KeyboardEvent(this.event.type, this.event));
@@ -89,6 +82,11 @@ export default class PageWorker {
         this.symbol = this.event.key;
         this.url = document.location.href;
         this.pageType = getPageType(this.url);
+        if (this.symbol === "Shift") { // ignore
+            event.stopImmediatePropagation();
+            event.preventDefault();
+            return;
+        }
         if (this.isEventAccepted()) {
             if (this.data) {
                 event.stopImmediatePropagation();
