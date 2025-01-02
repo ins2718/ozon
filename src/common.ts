@@ -6,6 +6,7 @@ const barcodeTypes = {
     ozonSmallCodeTemplate: /^[iI]{2}\d{9,10}$/,
     ozonSmallCodeRuTemplate: /^[Шш]{2}\d{9,10}$/,
     ozonLargeCodeTemplate: /^\d{15}$/,
+    ozonFreshCodeTemplate: /^\d{10}$/,
     avitoCodeTemplate: /^\d{10}$/,
     avitoGiveTemplate: /^%\d{2}%-[Vv][Dd]\d{2}-\d{7}$/,
     avitoGiveRuTemplate: /^%\d{2}%-[Мм][Вв]{2}\d{2}-\d{7}$/,
