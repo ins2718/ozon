@@ -19,8 +19,8 @@ export default class PageWorker {
     lastUpdate: number = 0;
 
     updateOptions(options: Options = {}) {
-        if (!("ozon" in options)) {
-            options.ozon = true;
+        if (!("ozon_learning" in options)) {
+            options.ozon_learning = false;
         }
         console.log("options", options);
         this.options = options;

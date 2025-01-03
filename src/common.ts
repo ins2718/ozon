@@ -42,6 +42,8 @@ const pageTypes = {
     ozonInventory: /^https:\/\/turbo-pvz\.ozon\.ru\/inventory(?:.*)?$/, // инвентаризация
     ozonSearch: /^https:\/\/turbo-pvz\.ozon\.ru\/search\/?(?:.*)?$/, // поиск
     ozonStores: /^https:\/\/turbo-pvz\.ozon\.ru\/stores\/?(?:.*)?$/, // выбор пункта
+
+    ozonLearning: /^https:\/\/olearning\.ozon\.ru\/program\/(\d+)-[\w-]+$/, // обучение, страница курса
 };
 
 type PageType = keyof typeof pageTypes;
