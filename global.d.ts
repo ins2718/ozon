@@ -194,3 +194,9 @@ interface OzonProgramMaterialScorm {
     masteryScore: null;
     error: OzonError;
 }
+
+interface OzonPvzInfo {
+    id: number;
+    name: string;
+    shelf: number;
+}

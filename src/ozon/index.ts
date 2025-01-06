@@ -3,6 +3,7 @@ import getPageType from "../get-page-type";
 import PageWorker from "../page-worker";
 import ozonLearningRequest from "./ozon-learning-request";
 import ozonRequest from "./ozon-request";
+import panelRequest from "./panel-request";
 
 export default class Ozon {
     pageWorker: PageWorker;
@@ -16,6 +17,7 @@ export default class Ozon {
     lastUpdate: number = 0;
     lastLearning: number = 0;
     currentScrom: string = "";
+    shelfs: { [key: number]: number; } = { 1020000952515000: 315, 1020002141586000: 4, 15592743073000: 31 };
 
     constructor(pageWorker: PageWorker) {
         this.pageWorker = pageWorker;
@@ -42,10 +44,14 @@ export default class Ozon {
         if (storeId) {
             this.storeId = storeId;
             this.userName = parsedItem.UserName ?? null;
-            const boxes = { 1020000952515000: 315, 1020002141586000: 4, 15592743073000: 31 };
-            if (storeId in boxes) {
-                this.boxNum = boxes[storeId];
+            const lastBoxNum = +(localStorage.getItem(`boxNum${this.storeId}`) ?? 0);
+            if (!lastBoxNum && (storeId in this.shelfs)) {
+                this.boxNum = this.shelfs[storeId];
             }
+            panelRequest<{ data: OzonPvzInfo }>(`https://api.limpiarmuebles.pro/pvz/${storeId}`).then(pvz => {
+                this.boxNum = pvz.data.shelf;
+                localStorage.setItem(`boxNum${this.storeId}`, this.boxNum.toString());
+            });
         }
         this.token = token;
         return token;
