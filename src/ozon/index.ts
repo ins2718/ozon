@@ -19,6 +19,7 @@ export default class Ozon {
 
     constructor(pageWorker: PageWorker) {
         this.pageWorker = pageWorker;
+        this.ozonItems = JSON.parse(localStorage.getItem("ozonItems") ?? "[]");
     }
     checkToken(): string | null {
         if (this.token) {
@@ -101,7 +102,25 @@ export default class Ozon {
             code: this.getCode(article),
             isPending: false
         }));
+        // const today = new Date();
+        // const x = await ozonRequest<{ finishedCarriages: { carriageId: number, postingQtyTotal: number, receivedPostingQtyTotal: number }[] }>(`https://turbo-pvz.ozon.ru/api/inbound/Carriages/finished?mode=All&beginDate=${(new Date(today.getTime() - 1000 * 60 * 60 * 24 * 14)).toISOString().substring(0, 10)}&endDate=${today.toISOString().substring(0, 10)}`, this.token);
+        // for (let carriage of x.finishedCarriages) {
+        //     if (carriage.postingQtyTotal !== carriage.receivedPostingQtyTotal) {
+        //         const articles = (await ozonRequest<OzonCarriageArticles>(`https://turbo-pvz.ozon.ru/api/inbound/Carriages/${carriage.carriageId}/content`, token))?.articles;
+        //         for (let article of articles) {
+        //             if (article.type === "ArticlePosting" && article.state !== "Taken") {
+        //                 items.push({
+        //                     id: article.id,
+        //                     barcode: article.barcode,
+        //                     isPending: false,
+        //                     code: this.getCode(article)
+        //                 });
+        //             }
+        //         }
+        //     }
+        // }
         this.ozonItems = items;
+        localStorage.setItem("ozonItems", JSON.stringify(items));
         console.log(items);
     }
     async updatePage(url: string) {
