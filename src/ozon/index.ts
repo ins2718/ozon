@@ -13,6 +13,7 @@ export default class Ozon {
     userName: string = null;
     loaded: boolean = false;
     speechSynthesisUtterance: SpeechSynthesisUtterance = null;
+    voices: SpeechSynthesisVoice[];
     boxNum: number = 0;
     lastUpdate: number = 0;
     lastLearning: number = 0;
@@ -22,6 +23,8 @@ export default class Ozon {
     constructor(pageWorker: PageWorker) {
         this.pageWorker = pageWorker;
         this.ozonItems = JSON.parse(localStorage.getItem("ozonItems") ?? "[]");
+        this.speechSynthesisUtterance = new SpeechSynthesisUtterance();
+        this.voices = speechSynthesis.getVoices().filter(s => s.lang === "ru-RU");
     }
     checkToken(): string | null {
         if (this.token) {
@@ -229,18 +232,14 @@ export default class Ozon {
     }
     textToScpeech(text: string) {
         if (this.userName) {
-            if (JSON.parse(localStorage.getItem(this.userName) ?? "{}")?.useSoundDegradation?.data) {
+            if (JSON.parse(localStorage.getItem(this.userName) ?? "{}")?.useSoundDegradation?.data || this.voices.length === 0) {
                 (new Audio(`https://turbo-pvz.ozon.ru/mp3/${text}.mp3`)).play();
                 return;
             }
         }
         const name = JSON.parse(localStorage.getItem(JSON.parse(localStorage.getItem("pvz-access-token") ?? "{}")?.UserName) ?? "{}")?.userVoice?.data ?? "Google русский";
-        if (!this.speechSynthesisUtterance) {
-            this.speechSynthesisUtterance = new SpeechSynthesisUtterance();
-            const voices = speechSynthesis.getVoices().filter(s => s.lang === "ru-RU");
-            const voice = voices.find(e => e.name === name);
-            this.speechSynthesisUtterance.voice = voice ? voice : voices[0];
-        }
+        const voice = this.voices.find(e => e.name === name);
+        this.speechSynthesisUtterance.voice = voice ? voice : this.voices[0];
         this.speechSynthesisUtterance.text = text;
         speechSynthesis.speak(this.speechSynthesisUtterance);
     }
