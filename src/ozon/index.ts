@@ -29,6 +29,28 @@ export default class Ozon {
         this.missedOzonItems = Object.fromEntries(JSON.parse(localStorage.getItem("missedOzonItems") ?? "[]"));
         this.speechSynthesisUtterance = new SpeechSynthesisUtterance();
         this.voices = speechSynthesis.getVoices().filter(s => s.lang === "ru-RU");
+        this.setUserVoice();
+    }
+    setUserVoice() {
+        const userName = JSON.parse(localStorage.getItem("pvz-access-token") ?? "{}")?.UserName;
+        if (!userName) {
+            return;
+        }
+        const userInfo = JSON.parse(localStorage.getItem(userName) ?? "{}");
+        const userVoice = userInfo?.userVoice?.data;
+        if (userVoice) {
+            return;
+        }
+        const useSoundDegradation = userInfo?.useSoundDegradation?.data;
+        if (!useSoundDegradation) {
+            userInfo.useSoundDegradation = {
+                data: true,
+                meta: {
+                    time: Date.now()
+                }
+            };
+            localStorage.setItem(userName, JSON.stringify(userInfo));
+        }
     }
     checkToken(): string | null {
         if (this.token) {
@@ -260,14 +282,15 @@ export default class Ozon {
     }
     textToScpeech(text: string) {
         if (this.userName) {
+            this.voices = speechSynthesis.getVoices().filter(s => s.lang === "ru-RU");
             if (JSON.parse(localStorage.getItem(this.userName) ?? "{}")?.useSoundDegradation?.data || this.voices.length === 0) {
                 (new Audio(`https://turbo-pvz.ozon.ru/mp3/${text}.mp3`)).play();
                 return;
             }
         }
-        const name = JSON.parse(localStorage.getItem(JSON.parse(localStorage.getItem("pvz-access-token") ?? "{}")?.UserName) ?? "{}")?.userVoice?.data ?? "Google русский";
+        const name = JSON.parse(localStorage.getItem(JSON.parse(localStorage.getItem("pvz-access-token") ?? "{}")?.UserName) ?? "{}")?.userVoice?.data?.name;
         const voice = this.voices.find(e => e.name === name);
-        this.speechSynthesisUtterance.voice = voice ? voice : this.voices[0];
+        this.speechSynthesisUtterance.voice = voice ?? this.voices[0];
         this.speechSynthesisUtterance.text = text;
         speechSynthesis.speak(this.speechSynthesisUtterance);
     }
