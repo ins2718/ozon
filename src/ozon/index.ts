@@ -1,12 +1,15 @@
-import { BarcodeType, pageTypes } from "../common";
+import { BarcodeType, barcodeTypes, pageTypes } from "../common";
 import getPageType from "../get-page-type";
 import PageWorker from "../page-worker";
 import ozonLearningRequest from "./ozon-learning-request";
-import ozonRequest from "./ozon-request";
+import ozonRequest, { ozonRequestUrl } from "./ozon-request";
 import panelRequest from "./panel-request";
+import * as pdfjsLib from "pdfjs-dist";
+pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL("pdf.worker.min.js");
 
 export default class Ozon {
     pageWorker: PageWorker;
+    missedOzonItems: { [key: number]: OzonItem[]; };
     ozonItems: OzonItem[];
     token: string = null;
     storeId: number = null;
@@ -23,6 +26,7 @@ export default class Ozon {
     constructor(pageWorker: PageWorker) {
         this.pageWorker = pageWorker;
         this.ozonItems = JSON.parse(localStorage.getItem("ozonItems") ?? "[]");
+        this.missedOzonItems = Object.fromEntries(JSON.parse(localStorage.getItem("missedOzonItems") ?? "[]"));
         this.speechSynthesisUtterance = new SpeechSynthesisUtterance();
         this.voices = speechSynthesis.getVoices().filter(s => s.lang === "ru-RU");
     }
@@ -59,9 +63,6 @@ export default class Ozon {
         this.token = token;
         return token;
     }
-    getCode(item: OzonPendingArticle | OzonWarehouseRemainsItem) {
-        return item.barcode[0] === "i" ? item.barcode : item.id.toString();
-    }
     async updateItems() {
         const now = Date.now();
         if (now - this.lastUpdate < 60 * 1000) {
@@ -90,7 +91,6 @@ export default class Ozon {
                         items.push({
                             id: inboxArticle.id,
                             barcode: inboxArticle.barcode,
-                            code: this.getCode(inboxArticle),
                             isPending: inboxArticle.state === "Banded"
                         });
                     }
@@ -98,7 +98,6 @@ export default class Ozon {
                     items.push({
                         id: article.id,
                         barcode: article.barcode,
-                        code: this.getCode(article),
                         isPending: article.state === "Banded"
                     });
                 }
@@ -108,27 +107,56 @@ export default class Ozon {
         articles.remains.forEach(article => items.push({
             id: article.id,
             barcode: article.barcode,
-            code: this.getCode(article),
             isPending: false
         }));
-        // const today = new Date();
-        // const x = await ozonRequest<{ finishedCarriages: { carriageId: number, postingQtyTotal: number, receivedPostingQtyTotal: number }[] }>(`https://turbo-pvz.ozon.ru/api/inbound/Carriages/finished?mode=All&beginDate=${(new Date(today.getTime() - 1000 * 60 * 60 * 24 * 14)).toISOString().substring(0, 10)}&endDate=${today.toISOString().substring(0, 10)}`, this.token);
-        // for (let carriage of x.finishedCarriages) {
-        //     if (carriage.postingQtyTotal !== carriage.receivedPostingQtyTotal) {
-        //         const articles = (await ozonRequest<OzonCarriageArticles>(`https://turbo-pvz.ozon.ru/api/inbound/Carriages/${carriage.carriageId}/content`, token))?.articles;
-        //         for (let article of articles) {
-        //             if (article.type === "ArticlePosting" && article.state !== "Taken") {
-        //                 items.push({
-        //                     id: article.id,
-        //                     barcode: article.barcode,
-        //                     isPending: false,
-        //                     code: this.getCode(article)
-        //                 });
-        //             }
-        //         }
-        //     }
-        // }
-        this.ozonItems = items;
+        const missedItems: { [key: number]: OzonItem[] } = [];
+        const regExps = [barcodeTypes.ozonLargeCodePublicTemplate, barcodeTypes.ozonSmallCodeTemplate, barcodeTypes.ozonFreshCodeTemplate].map(regExp => new RegExp(regExp.source.substring(1, regExp.source.length - 1)))
+        const today = new Date();
+        const finishedCarriages = await ozonRequest<{ finishedCarriages: OzonFinishedCarriages[] }>(`https://turbo-pvz.ozon.ru/api/inbound/Carriages/finished?limit=30&mode=All&beginDate=${(new Date(today.getTime() - 1000 * 60 * 60 * 24 * 14)).toISOString().substring(0, 10)}&endDate=${today.toISOString().substring(0, 10)}`, this.token);
+        for (let carriage of finishedCarriages.finishedCarriages) {
+            if (carriage.carriageId in this.missedOzonItems) {
+                missedItems[carriage.carriageId] = this.missedOzonItems[carriage.carriageId];
+                continue;
+            }
+            let save = false;
+            missedItems[carriage.carriageId] = [];
+            for (let document of carriage.documentsV2) {
+                if (document.documentType === "DocumentsMismatchAct") {
+                    save = true;
+                    const pdfUrl = `https://turbo-pvz.ozon.ru/api/inbound/Documents/download?transportationId=${carriage.carriageId}&documentId=${document.documentId}&documentType=${document.documentType}`;
+                    const blobUrl = await ozonRequestUrl(pdfUrl, token);
+                    const loadingTask = pdfjsLib.getDocument(blobUrl);
+                    const pdfDocument = await loadingTask.promise;
+                    for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber++) {
+                        const page = await pdfDocument.getPage(pageNumber);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => "str" in item ? item.str : "").join("");
+                        const regExp = /Отправление [\s-\di\(\)]+ шт/g;
+                        for (let match of pageText.matchAll(regExp)) {
+                            for (let codeRegExp of regExps) {
+                                const m = match[0].match(codeRegExp);
+                                if (m) {
+                                    const item = await ozonRequest<OzonShortArticle>(`https://turbo-pvz.ozon.ru/api/article-tracking/Article/find?name=${m[0]}&isManualInput=true`, token);
+                                    const ozonItem = {
+                                        id: item.id,
+                                        barcode: item.name,
+                                        isPending: false
+                                    };
+                                    missedItems[carriage.carriageId].push(ozonItem);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (!save) {
+                delete missedItems[carriage.carriageId];
+            }
+        }
+        this.missedOzonItems = missedItems;
+        localStorage.setItem("missedOzonItems", JSON.stringify(Object.entries(missedItems)));
+        Object.values(missedItems).forEach(missedItems => missedItems.forEach(missedItem => items.push(missedItem)));
         localStorage.setItem("ozonItems", JSON.stringify(items));
         console.log(items);
     }

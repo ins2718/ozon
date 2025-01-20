@@ -24,7 +24,8 @@
                 "https://turbo-pvz.ozon.ru/*"
             ],
             "js": [
-                "content-script.js"
+                "content-script.js",
+                "pdf.worker.min.js"
             ]
         }
     ],

@@ -8,6 +8,7 @@ module.exports = {
         "content-script": "./src/content-script.ts",
         background: "./src/background.ts",
         options: "./src/options.ts",
+        "pdf.worker.min": "./src/pdf.worker.min.mjs"
     },
     output: {
         path: path.resolve(__dirname, "./dist"),

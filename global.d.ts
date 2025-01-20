@@ -1,3 +1,8 @@
+declare module "*.mjs" {
+    const value: string;
+    export default value;
+}
+
 interface OzonPendingArticle {
     id: number;
     barcode: string;
@@ -22,7 +27,6 @@ interface OzonWarehouseRemains {
 interface OzonItem {
     id: number;
     barcode: string;
-    code: string;
     isPending: boolean;
     address?: string;
 }
@@ -199,4 +203,29 @@ interface OzonPvzInfo {
     id: number;
     name: string;
     shelf: number;
+}
+
+interface OzonFinishedCarriageDocument {
+    documentId: string;
+    documentTypeName: string;
+    documentType: "TransferAcceptanceCertificate" | "ReceivedTVAct" | "ShippingList" | "DocumentsMismatchAct";
+    status: "ReadyToDownload";
+    barcode?: string;
+}
+
+interface OzonFinishedCarriages {
+    carriageId: number;
+    postingQtyTotal: number;
+    receivedPostingQtyTotal: number;
+    documentsV2: OzonFinishedCarriageDocument[];
+}
+
+interface OzonShortArticle {
+    id: number;
+    name: string;
+    type: "ArticlePosting" | "ArticleBoxTare";
+    status: string;
+    currentPlaceName: string;
+    currentPlaceId: number;
+    articleTypeName: string;
 }
