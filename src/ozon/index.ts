@@ -77,9 +77,18 @@ export default class Ozon {
             if (!lastBoxNum && (storeId in this.shelfs)) {
                 this.boxNum = this.shelfs[storeId];
             }
-            panelRequest<{ data: OzonPvzInfo }>(`https://api.limpiarmuebles.pro/pvz/${storeId}`).then(pvz => {
-                this.boxNum = pvz.data.shelf;
-                localStorage.setItem(`boxNum${this.storeId}`, this.boxNum.toString());
+            ozonRequest<{ shelves: OzonShelf[] }>("https://turbo-pvz.ozon.ru/api/inbound/address_storage/empty-shelves", token).then(json => {
+                let shelf: OzonShelf | null = null;
+                if (json.shelves.length > 0) {
+                    shelf = json.shelves[0];
+                }
+                panelRequest<{ data: OzonPvzInfo }>(`https://api.limpiarmuebles.pro/pvz/${storeId}?empty-shelf=${shelf.address}`).then(pvz => {
+                    this.boxNum = pvz.data.shelf;
+                    localStorage.setItem(`boxNum${this.storeId}`, this.boxNum.toString());
+                    if (this.boxNum === +shelf.address) {
+                        ozonRequest(`https://turbo-pvz.ozon.ru/api/address-storage/Agent/structure/remove-element?elementId=${json.shelves[0].id}`, token, "DELETE");
+                    }
+                });
             });
         }
         this.token = token;
@@ -242,8 +251,12 @@ export default class Ozon {
                         },
                         body: JSON.stringify({ store_id: this.storeId, code: code, }),
                     }).then(resp => resp.json()).then(resp => {
+                        if (!resp.data.shelf) {
+                            (new Audio(chrome.runtime.getURL("sounds/error.mp3"))).play();
+                            return;
+                        }
                         const type = resp.data.total_scans === 1 ? "success" : "warning";
-                        (new Audio(chrome.runtime.getURL(`sounds/${type}.mp3`))).play().then(() => this.textToScpeech(this.boxNum.toString()));
+                        (new Audio(chrome.runtime.getURL(`sounds/${type}.mp3`))).play().then(() => this.textToScpeech(resp.data.shelf.toString()));
                         const wrap = document.querySelector("._logsWrapper_mor7k_7");
                         if (!wrap) {
                             return;

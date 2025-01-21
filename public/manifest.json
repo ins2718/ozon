@@ -34,6 +34,7 @@
             "resources": [
                 "sounds/success.mp3",
                 "sounds/warning.mp3",
+                "sounds/error.mp3",
                 "sounds/special.mp3"
             ],
             "matches": [

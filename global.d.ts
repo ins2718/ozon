@@ -229,3 +229,8 @@ interface OzonShortArticle {
     currentPlaceId: number;
     articleTypeName: string;
 }
+
+interface OzonShelf {
+    id: number;
+    address: string;
+}

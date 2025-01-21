@@ -1,5 +1,22 @@
-export default async function ozonRequest<ReturnType>(url: string, bearer: string) {
+type METHOD = "GET" | "DELETE" | "POST" | "PUT";
+
+interface OzonRequestParams {
+    method?: METHOD;
+    body?: BodyInit;
+}
+
+export default async function ozonRequest<ReturnType>(url: string, bearer: string, params?: METHOD | OzonRequestParams) {
+    let method: METHOD = "GET";
+    let body: BodyInit = undefined;
+    if (typeof params === "string") {
+        method = params;
+    } else {
+        method = params?.method ?? method;
+        body = params?.body ?? body;
+    }
     const resp = await fetch(url, {
+        method,
+        body,
         credentials: "include",
         headers: {
             "Content-Type": "application/json",
