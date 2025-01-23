@@ -155,29 +155,33 @@ export default class Ozon {
                 if (document.documentType === "DocumentsMismatchAct") {
                     save = true;
                     const pdfUrl = `https://turbo-pvz.ozon.ru/api/inbound/Documents/download?transportationId=${carriage.carriageId}&documentId=${document.documentId}&documentType=${document.documentType}`;
-                    const blobUrl = await ozonRequestUrl(pdfUrl, token);
-                    const loadingTask = pdfjsLib.getDocument(blobUrl);
-                    const pdfDocument = await loadingTask.promise;
-                    for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber++) {
-                        const page = await pdfDocument.getPage(pageNumber);
-                        const textContent = await page.getTextContent();
-                        const pageText = textContent.items.map(item => "str" in item ? item.str : "").join("");
-                        const regExp = /Отправление [\s-\di\(\)]+ шт/g;
-                        for (let match of pageText.matchAll(regExp)) {
-                            for (let codeRegExp of regExps) {
-                                const m = match[0].match(codeRegExp);
-                                if (m) {
-                                    const item = await ozonRequest<OzonShortArticle>(`https://turbo-pvz.ozon.ru/api/article-tracking/Article/find?name=${m[0]}&isManualInput=true`, token);
-                                    const ozonItem = {
-                                        id: item.id,
-                                        barcode: item.name,
-                                        isPending: false
-                                    };
-                                    missedItems[carriage.carriageId].push(ozonItem);
-                                    break;
+                    try {
+                        const blobUrl = await ozonRequestUrl(pdfUrl, token);
+                        const loadingTask = pdfjsLib.getDocument(blobUrl);
+                        const pdfDocument = await loadingTask.promise;
+                        for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber++) {
+                            const page = await pdfDocument.getPage(pageNumber);
+                            const textContent = await page.getTextContent();
+                            const pageText = textContent.items.map(item => "str" in item ? item.str : "").join("");
+                            const regExp = /Отправление [\s-\di\(\)]+ шт/g;
+                            for (let match of pageText.matchAll(regExp)) {
+                                for (let codeRegExp of regExps) {
+                                    const m = match[0].match(codeRegExp);
+                                    if (m) {
+                                        const item = await ozonRequest<OzonShortArticle>(`https://turbo-pvz.ozon.ru/api/article-tracking/Article/find?name=${m[0]}&isManualInput=true`, token);
+                                        const ozonItem = {
+                                            id: item.id,
+                                            barcode: item.name,
+                                            isPending: false
+                                        };
+                                        missedItems[carriage.carriageId].push(ozonItem);
+                                        break;
+                                    }
                                 }
                             }
                         }
+                    } catch (e) {
+                        continue;
                     }
                 }
             }
