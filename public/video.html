@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Video</title>
+</head>
+
+<body>
+    <style>
+        body {
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        body>iframe {
+            flex-basis: 50%;
+        }
+
+        @media (orientation: portrait) {
+            body {
+                flex-direction: column;
+            }
+        }
+    </style>
+</body>
+<script src="video.js"></script>
+
+</html>

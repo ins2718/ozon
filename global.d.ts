@@ -33,6 +33,7 @@ interface OzonItem {
 
 interface Options {
     ozon_learning?: boolean;
+    ozon_video?: boolean;
 }
 
 interface OzonArrival {
@@ -233,4 +234,22 @@ interface OzonShortArticle {
 interface OzonShelf {
     id: number;
     address: string;
+}
+
+interface OzonOperationDescription {
+    moment: string;
+    momentUtc: string;
+    operationDescription: string;
+    placeId: number;
+    placeName: string;
+}
+
+interface OzonFind {
+    id: number;
+    name: string;
+    type: "ArticlePosting";
+    status: string;
+    currentPlaceName: string;
+    currentPlaceId: number;
+    articleTypeName: "Отправление";
 }

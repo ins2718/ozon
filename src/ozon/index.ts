@@ -22,8 +22,10 @@ export default class Ozon {
     lastLearning: number = 0;
     currentScrom: string = "";
     shelfs: { [key: number]: number; } = { 1020000952515000: 315, 1020002141586000: 4, 15592743073000: 31 };
+    ozonSearchItemTimer: NodeJS.Timeout;
 
     constructor(pageWorker: PageWorker) {
+        this.checkToken();
         this.pageWorker = pageWorker;
         this.ozonItems = JSON.parse(localStorage.getItem("ozonItems") ?? "[]");
         this.missedOzonItems = Object.fromEntries(JSON.parse(localStorage.getItem("missedOzonItems") ?? "[]"));
@@ -197,6 +199,10 @@ export default class Ozon {
     }
     async updatePage(url: string) {
         const pageType = getPageType(url);
+        if (this.ozonSearchItemTimer && !["ozonSearchItem", "ozonOrdersAction"].includes(pageType)) {
+            clearInterval(this.ozonSearchItemTimer);
+            this.ozonSearchItemTimer = null;
+        }
         if (["ozonInventory", "ozonReceive"].includes(pageType)) {
             if (!this.loaded) {
                 this.loaded = true;
@@ -217,9 +223,76 @@ export default class Ozon {
                 }
             }
             return;
+        } else if (this.pageWorker.options.ozon_video && pageType === "ozonSearchItem") {
+            if (!this.ozonSearchItemTimer) {
+                const m = url.match(pageTypes.ozonSearchItem);
+                if (m) {
+                    const itemId = +m[1];
+                    this.ozonSearchItemTimer = setInterval(() => this.ozonSearchItemCb(itemId), 1000);
+                }
+            }
+        } else if (this.pageWorker.options.ozon_video && pageType === "ozonOrdersAction") {
+            if (!this.ozonSearchItemTimer) {
+                this.ozonSearchItemTimer = setInterval(() => this.ozonOrdersActionCb(), 1000);
+            }
         }
         if (this.loaded) {
             this.loaded = false;
+        }
+    }
+    ozonOrdersActionCb() {
+        const items = document.querySelectorAll("div[class^=_copy_]");
+        if (!items) {
+            return;
+        }
+        clearInterval(this.ozonSearchItemTimer);
+        this.ozonSearchItemTimer = null;
+        for (let item of items) {
+            const itemCode = (item as HTMLDivElement).innerText.replace(/\s/g, "");
+            const el1 = document.createElement("a");
+            el1.href = `https://turbo-pvz.ozon.ru/search?filter={%22search%22:%22${itemCode}%22}`;
+            el1.innerText = "Поиск";
+            el1.target = "_blank";
+            item.parentNode.appendChild(el1);
+            const el = document.createElement("a");
+            el.href = "#";
+            el.innerText = "Видео";
+            el.target = "_blank";
+            el.onclick = (event) => {
+                event.preventDefault();
+                ozonRequest<OzonFind>(`https://turbo-pvz.ozon.ru/api/article-tracking/Article/find?name=${itemCode}&isManualInput=true`, this.token).then(findJson => {
+                    const itemId = findJson.id;
+                    ozonRequest<{ operations: OzonOperationDescription[] }>(`https://turbo-pvz.ozon.ru/api/article-tracking/Article/operation-history?articleId=${itemId}`, this.token).then(json => {
+                        for (let operation of json.operations) {
+                            if (operation.operationDescription.startsWith("Отправление принято с помощью сканера, пользователь")) {
+                                const url = `${chrome.runtime.getURL("video.html")}?store=${this.storeId}&start=${new Date(operation.momentUtc).getTime() / 1000 | 0}`;
+                                el.href = url;
+                                el.onclick = null;
+                                window.open(url, '_blank').focus();
+                            }
+                        }
+                    });
+                });
+            };
+            item.parentNode.appendChild(el);
+        }
+    }
+    ozonSearchItemCb(itemId: number) {
+        const item = document.querySelector("[class^=ozi__breadcrumb-content__label__]");
+        if (item && this.storeId) {
+            clearInterval(this.ozonSearchItemTimer);
+            this.ozonSearchItemTimer = null;
+            ozonRequest<{ operations: OzonOperationDescription[] }>(`https://turbo-pvz.ozon.ru/api/article-tracking/Article/operation-history?articleId=${itemId}`, this.token).then(json => {
+                for (let operation of json.operations) {
+                    if (operation.operationDescription.startsWith("Отправление принято с помощью сканера, пользователь")) {
+                        const el = document.createElement("a");
+                        el.href = `${chrome.runtime.getURL("video.html")}?store=${this.storeId}&start=${new Date(operation.momentUtc).getTime() / 1000 | 0}`;
+                        el.innerText = " (Видео)";
+                        el.target = "_blank";
+                        item.appendChild(el);
+                    }
+                }
+            });
         }
     }
     isAccepted() {

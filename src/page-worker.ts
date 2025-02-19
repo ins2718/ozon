@@ -22,6 +22,9 @@ export default class PageWorker {
         if (!("ozon_learning" in options)) {
             options.ozon_learning = false;
         }
+        if (!("ozon_video" in options)) {
+            options.ozon_video = false;
+        }
         console.log("options", options);
         this.options = options;
     }
