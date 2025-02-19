@@ -96,9 +96,9 @@ export default class Ozon {
         this.token = token;
         return token;
     }
-    async updateItems() {
+    async updateItems(force = false) {
         const now = Date.now();
-        if (now - this.lastUpdate < 60 * 1000) {
+        if ((!force && now - this.lastUpdate < 60 * 10000) || (force && now - this.lastUpdate < 60 * 1000)) {
             return;
         }
         this.lastUpdate = now;
@@ -124,14 +124,16 @@ export default class Ozon {
                         items.push({
                             id: inboxArticle.id,
                             barcode: inboxArticle.barcode,
-                            isPending: inboxArticle.state === "Banded"
+                            isPending: inboxArticle.state === "Banded",
+                            name: inboxArticle.name.find(s => s.match(barcodeTypes.ozonLargeCodePublicTemplate)),
                         });
                     }
                 } else {
                     items.push({
                         id: article.id,
                         barcode: article.barcode,
-                        isPending: article.state === "Banded"
+                        isPending: article.state === "Banded",
+                        name: article.name.find(s => s.match(barcodeTypes.ozonLargeCodePublicTemplate)),
                     });
                 }
             }
@@ -140,7 +142,8 @@ export default class Ozon {
         articles.remains.forEach(article => items.push({
             id: article.id,
             barcode: article.barcode,
-            isPending: false
+            isPending: false,
+            name: article.name.find(s => s.match(barcodeTypes.ozonLargeCodePublicTemplate)),
         }));
         const missedItems: { [key: number]: OzonItem[] } = [];
         const regExps = [barcodeTypes.ozonLargeCodePublicTemplate, barcodeTypes.ozonSmallCodeTemplate, barcodeTypes.ozonFreshCodeTemplate].map(regExp => new RegExp(regExp.source.substring(1, regExp.source.length - 1)))
@@ -240,41 +243,49 @@ export default class Ozon {
             this.loaded = false;
         }
     }
-    ozonOrdersActionCb() {
+    async ozonOrdersActionCb() {
         const items = document.querySelectorAll("div[class^=_copy_]");
         if (!items) {
             return;
         }
         clearInterval(this.ozonSearchItemTimer);
         this.ozonSearchItemTimer = null;
+        let needUpdate = false;
         for (let item of items) {
             const itemCode = (item as HTMLDivElement).innerText.replace(/\s/g, "");
-            const el1 = document.createElement("a");
-            el1.href = `https://turbo-pvz.ozon.ru/search?filter={%22search%22:%22${itemCode}%22}`;
-            el1.innerText = "Поиск";
-            el1.target = "_blank";
-            item.parentNode.appendChild(el1);
-            const el = document.createElement("a");
-            el.href = "#";
-            el.innerText = "Видео";
-            el.target = "_blank";
-            el.onclick = (event) => {
-                event.preventDefault();
-                ozonRequest<OzonFind>(`https://turbo-pvz.ozon.ru/api/article-tracking/Article/find?name=${itemCode}&isManualInput=true`, this.token).then(findJson => {
-                    const itemId = findJson.id;
-                    ozonRequest<{ operations: OzonOperationDescription[] }>(`https://turbo-pvz.ozon.ru/api/article-tracking/Article/operation-history?articleId=${itemId}`, this.token).then(json => {
-                        for (let operation of json.operations) {
-                            if (operation.operationDescription.startsWith("Отправление принято с помощью сканера, пользователь")) {
-                                const url = `${chrome.runtime.getURL("video.html")}?store=${this.storeId}&start=${new Date(operation.momentUtc).getTime() / 1000 | 0}`;
-                                el.href = url;
-                                el.onclick = null;
-                                window.open(url, '_blank').focus();
-                            }
-                        }
+            const findElement = document.createElement("a");
+            findElement.href = `https://turbo-pvz.ozon.ru/search?filter={%22search%22:%22${itemCode}%22}`;
+            findElement.innerText = "Поиск";
+            findElement.target = "_blank";
+            item.parentNode.appendChild(findElement);
+            const videoElement = document.createElement("a");
+            videoElement.innerText = "Видео";
+            videoElement.target = "_blank";
+            const ozonItem = this.findOzonItem(itemCode);
+            if (ozonItem) {
+                const receiveTime = await this.getItemReceiveTime(ozonItem.id);
+                const url = `${chrome.runtime.getURL("video.html")}?store=${this.storeId}&start=${receiveTime.getTime() / 1000 | 0}`;
+                videoElement.href = url;
+            } else {
+                needUpdate = true;
+                videoElement.href = "#";
+                videoElement.onclick = (event) => {
+                    event.preventDefault();
+                    ozonRequest<OzonFind>(`https://turbo-pvz.ozon.ru/api/article-tracking/Article/find?name=${itemCode}&isManualInput=true`, this.token).then(findJson => {
+                        const itemId = findJson.id;
+                        this.getItemReceiveTime(ozonItem.id).then(receiveTime => {
+                            const url = `${chrome.runtime.getURL("video.html")}?store=${this.storeId}&start=${receiveTime.getTime() / 1000 | 0}`;
+                            videoElement.href = url;
+                            videoElement.onclick = null;
+                            window.open(url, '_blank').focus();
+                        })
                     });
-                });
-            };
-            item.parentNode.appendChild(el);
+                };
+            }
+            item.parentNode.appendChild(videoElement);
+        }
+        if (needUpdate) {
+            this.updateItems();
         }
     }
     ozonSearchItemCb(itemId: number) {
@@ -282,16 +293,12 @@ export default class Ozon {
         if (item && this.storeId) {
             clearInterval(this.ozonSearchItemTimer);
             this.ozonSearchItemTimer = null;
-            ozonRequest<{ operations: OzonOperationDescription[] }>(`https://turbo-pvz.ozon.ru/api/article-tracking/Article/operation-history?articleId=${itemId}`, this.token).then(json => {
-                for (let operation of json.operations) {
-                    if (operation.operationDescription.startsWith("Отправление принято с помощью сканера, пользователь")) {
-                        const el = document.createElement("a");
-                        el.href = `${chrome.runtime.getURL("video.html")}?store=${this.storeId}&start=${new Date(operation.momentUtc).getTime() / 1000 | 0}`;
-                        el.innerText = " (Видео)";
-                        el.target = "_blank";
-                        item.appendChild(el);
-                    }
-                }
+            this.getItemReceiveTime(itemId).then(receiveDate => {
+                const el = document.createElement("a");
+                el.href = `${chrome.runtime.getURL("video.html")}?store=${this.storeId}&start=${receiveDate.getTime() / 1000 | 0}`;
+                el.innerText = " (Видео)";
+                el.target = "_blank";
+                item.appendChild(el);
             });
         }
     }
@@ -299,7 +306,7 @@ export default class Ozon {
         return !["ozonInventory", "ozonReceive"].includes(this.pageWorker.pageType) || document.activeElement?.tagName === "INPUT";
     }
     findOzonItem(code: string) {
-        const result = this.ozonItems.find(item => code === item.barcode || code === item.id.toString());
+        const result = this.ozonItems.find(item => code === item.barcode || code === item.id.toString() || code === item.name);
         if (result) {
             return result;
         }
@@ -308,7 +315,6 @@ export default class Ozon {
     checkCode(code: string, type: BarcodeType): boolean {
         if (type === "ozonBoxCodeTemplate") {
             this.pageWorker.send(code);
-            setTimeout(() => this.updateItems(), 2000);
             return true;
         }
         if (["ozonSmallCodeRuTemplate", "ozonSmallCodeTemplate"].includes(type)) {
@@ -517,5 +523,17 @@ export default class Ozon {
             return;
         }
         setTimeout(() => this.scromHelper(id, true), 500);
+    }
+    async getItemOperationHistory(itemId: number): Promise<OzonOperationDescription[]> {
+        const json = await ozonRequest<{ operations: OzonOperationDescription[] }>(`https://turbo-pvz.ozon.ru/api/article-tracking/Article/operation-history?articleId=${itemId}`, this.token);
+        return json.operations;
+    };
+    async getItemReceiveTime(itemId: number) {
+        const operations = await this.getItemOperationHistory(itemId);
+        for (let operation of operations) {
+            if (operation.operationDescription.startsWith("Отправление принято с помощью сканера, пользователь")) {
+                return new Date(operation.momentUtc);
+            }
+        }
     }
 }

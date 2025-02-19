@@ -17,6 +17,7 @@ interface OzonWarehouseRemainsItem {
     barcode: string;
     address?: string;
     returnMoment?: string;
+    name: string[];
 }
 
 interface OzonWarehouseRemains {
@@ -29,6 +30,7 @@ interface OzonItem {
     barcode: string;
     isPending: boolean;
     address?: string;
+    name?: string;
 }
 
 interface Options {
@@ -82,7 +84,7 @@ interface OzonCarriageArticle {
     id: number;
     isQuantum: boolean;
     label: string;
-    name: string;
+    name: string[];
     state: "Taken" | "Banded";
     type: "ArticlePosting" | "ArticleBoxTare";
 }
