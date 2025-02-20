@@ -84,7 +84,7 @@ interface OzonCarriageArticle {
     id: number;
     isQuantum: boolean;
     label: string;
-    name: string[];
+    name: string;
     state: "Taken" | "Banded";
     type: "ArticlePosting" | "ArticleBoxTare";
 }

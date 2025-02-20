@@ -25,6 +25,7 @@ export default class Ozon {
     ozonSearchItemTimer: NodeJS.Timeout;
 
     constructor(pageWorker: PageWorker) {
+        this.lastUpdate = +(localStorage.getItem("ozonLastUpdate") ?? "0");
         this.checkToken();
         this.pageWorker = pageWorker;
         this.ozonItems = JSON.parse(localStorage.getItem("ozonItems") ?? "[]");
@@ -32,6 +33,9 @@ export default class Ozon {
         this.speechSynthesisUtterance = new SpeechSynthesisUtterance();
         this.voices = speechSynthesis.getVoices().filter(s => s.lang === "ru-RU");
         this.setUserVoice();
+    }
+    isEventIntercepted() {
+        return ["ozonInventory", "ozonReceive"].includes(this.pageWorker.pageType);
     }
     setUserVoice() {
         const userName = JSON.parse(localStorage.getItem("pvz-access-token") ?? "{}")?.UserName;
@@ -102,6 +106,7 @@ export default class Ozon {
             return;
         }
         this.lastUpdate = now;
+        localStorage.setItem("ozonLastUpdate", now.toString());
         const token = this.checkToken();
         if (!token) {
             return;
@@ -125,7 +130,7 @@ export default class Ozon {
                             id: inboxArticle.id,
                             barcode: inboxArticle.barcode,
                             isPending: inboxArticle.state === "Banded",
-                            name: inboxArticle.name.find(s => s.match(barcodeTypes.ozonLargeCodePublicTemplate)),
+                            name: inboxArticle.name,
                         });
                     }
                 } else {
@@ -133,7 +138,7 @@ export default class Ozon {
                         id: article.id,
                         barcode: article.barcode,
                         isPending: article.state === "Banded",
-                        name: article.name.find(s => s.match(barcodeTypes.ozonLargeCodePublicTemplate)),
+                        name: article.name,
                     });
                 }
             }
