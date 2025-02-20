@@ -17,6 +17,8 @@ export default class PageWorker {
     events: KeyboardEvent[] = [];
     data: string = "";
     lastUpdate: number = 0;
+    isIntercepted: boolean = false;
+    isSpecial: boolean;
 
     updateOptions(options: Options = {}) {
         if (!("ozon_learning" in options)) {
@@ -39,6 +41,9 @@ export default class PageWorker {
             return true;
         }
         return false;
+    }
+    isEventIntercepted() {
+        return this.isIntercepted || this.ozon.isEventIntercepted();
     }
     send(data: string = null) {
         data = data ?? this.data;
@@ -83,13 +88,10 @@ export default class PageWorker {
     keyDown(event: KeyboardEvent) {
         this.event = event;
         this.symbol = this.event.key;
+        this.isSpecial = this.symbol.length !== 1;
         this.url = document.location.href;
         this.pageType = getPageType(this.url);
-        if (this.symbol === "Shift") { // ignore
-            event.stopImmediatePropagation();
-            event.preventDefault();
-            return;
-        }
+        this.isIntercepted = this.isEventIntercepted();
         if (this.isEventAccepted()) {
             if (this.data) {
                 event.stopImmediatePropagation();
@@ -100,16 +102,22 @@ export default class PageWorker {
         }
         if (this.symbol === "Enter") {
             if (this.data) {
-                event.stopImmediatePropagation();
-                event.preventDefault();
+                if (this.isIntercepted) {
+                    event.stopImmediatePropagation();
+                    event.preventDefault();
+                }
                 this.checkCode();
                 this.reset();
             }
             return;
         }
-        event.stopImmediatePropagation();
-        event.preventDefault();
-        this.data += this.symbol;
+        if (this.isIntercepted) {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+        }
+        if (!this.isSpecial) {
+            this.data += this.symbol;
+        }
         this.events.push(event);
         if (this.hTimeout) {
             clearTimeout(this.hTimeout);
