@@ -25,7 +25,6 @@ export default class Ozon {
     ozonSearchItemTimer: NodeJS.Timeout;
 
     constructor(pageWorker: PageWorker) {
-        this.lastUpdate = +(localStorage.getItem("ozonLastUpdate") ?? "0");
         this.checkToken();
         this.pageWorker = pageWorker;
         this.ozonItems = JSON.parse(localStorage.getItem("ozonItems") ?? "[]");
@@ -77,6 +76,7 @@ export default class Ozon {
         this.boxNum = 0;
         const storeId = parsedItem.StoreId;
         if (storeId) {
+            this.lastUpdate = +(localStorage.getItem(`${storeId}-ozonLastUpdate`) ?? "0");
             this.storeId = storeId;
             this.userName = parsedItem.UserName ?? null;
             const lastBoxNum = +(localStorage.getItem(`boxNum${this.storeId}`) ?? 0);
@@ -100,13 +100,20 @@ export default class Ozon {
         this.token = token;
         return token;
     }
+    parseName(name: string | null | (string | null)[]): string {
+        if (Array.isArray(name)) {
+            return name.find(s => (s ?? "").match(barcodeTypes.ozonLargeCodePublicTemplate));
+        }
+        if (typeof name === "string") {
+            return name;
+        }
+        return "";
+    }
     async updateItems(force = false) {
         const now = Date.now();
         if ((!force && now - this.lastUpdate < 60 * 10000) || (force && now - this.lastUpdate < 60 * 1000)) {
             return;
         }
-        this.lastUpdate = now;
-        localStorage.setItem("ozonLastUpdate", now.toString());
         const token = this.checkToken();
         if (!token) {
             return;
@@ -130,7 +137,7 @@ export default class Ozon {
                             id: inboxArticle.id,
                             barcode: inboxArticle.barcode,
                             isPending: inboxArticle.state === "Banded",
-                            name: inboxArticle.name,
+                            name: this.parseName(inboxArticle.name),
                         });
                     }
                 } else {
@@ -138,7 +145,7 @@ export default class Ozon {
                         id: article.id,
                         barcode: article.barcode,
                         isPending: article.state === "Banded",
-                        name: article.name,
+                        name: this.parseName(article.name),
                     });
                 }
             }
@@ -148,7 +155,7 @@ export default class Ozon {
             id: article.id,
             barcode: article.barcode,
             isPending: false,
-            name: article.name.find(s => s.match(barcodeTypes.ozonLargeCodePublicTemplate)),
+            name: this.parseName(article.name),
         }));
         const missedItems: { [key: number]: OzonItem[] } = [];
         const regExps = [barcodeTypes.ozonLargeCodePublicTemplate, barcodeTypes.ozonSmallCodeTemplate, barcodeTypes.ozonFreshCodeTemplate].map(regExp => new RegExp(regExp.source.substring(1, regExp.source.length - 1)))
@@ -204,6 +211,8 @@ export default class Ozon {
         Object.values(missedItems).forEach(missedItems => missedItems.forEach(missedItem => items.push(missedItem)));
         localStorage.setItem("ozonItems", JSON.stringify(items));
         console.log(items);
+        this.lastUpdate = now;
+        localStorage.setItem(`${this.storeId}-ozonLastUpdate`, now.toString());
     }
     async updatePage(url: string) {
         const pageType = getPageType(url);
