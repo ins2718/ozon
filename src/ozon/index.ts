@@ -210,6 +210,7 @@ export default class Ozon {
         localStorage.setItem("missedOzonItems", JSON.stringify(Object.entries(missedItems)));
         Object.values(missedItems).forEach(missedItems => missedItems.forEach(missedItem => items.push(missedItem)));
         localStorage.setItem("ozonItems", JSON.stringify(items));
+        this.ozonItems = items;
         console.log(items);
         this.lastUpdate = now;
         localStorage.setItem(`${this.storeId}-ozonLastUpdate`, now.toString());
