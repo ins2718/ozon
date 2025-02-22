@@ -268,6 +268,9 @@ export default class Ozon {
         let needUpdate = false;
         for (let item of items) {
             const itemCode = (item as HTMLDivElement).innerText.replace(/\s/g, "");
+            if (document.getElementById(`video-${itemCode}`)) {
+                break;
+            }
             const findElement = document.createElement("a");
             findElement.href = `https://turbo-pvz.ozon.ru/search?filter={%22search%22:%22${itemCode}%22}`;
             findElement.innerText = "Поиск";
@@ -275,6 +278,7 @@ export default class Ozon {
             item.parentNode.appendChild(findElement);
             const videoElement = document.createElement("a");
             videoElement.innerText = "Видео";
+            videoElement.id = `video-${itemCode}`;
             videoElement.target = "_blank";
             const ozonItem = this.findOzonItem(itemCode);
             if (ozonItem) {
