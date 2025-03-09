@@ -15,6 +15,7 @@ window.addEventListener("load", () => {
     const end = start + 60 * 30;
     for (let code of options[urlParams.get('store')].codes) {
         const el = document.createElement("iframe");
+        el.allow = "fullscreen *"
         el.src = `https://ru.cloud.trassir.com/embed/${code}?lang=ru&start=${start}&end=${end}&mode=record&autoplay=1`;
         document.body.appendChild(el);
     }
