@@ -245,8 +245,7 @@ export default class Ozon {
             if (!this.ozonSearchItemTimer) {
                 const m = url.match(pageTypes.ozonSearchItem);
                 if (m) {
-                    const itemId = +m[1];
-                    this.ozonSearchItemTimer = setInterval(() => this.ozonSearchItemCb(itemId), 1000);
+                    this.ozonSearchItemTimer = setInterval(this.ozonSearchItemCb, 1000);
                 }
             }
         } else if (this.pageWorker.options.ozon_video && pageType === "ozonOrdersAction") {
@@ -268,57 +267,38 @@ export default class Ozon {
         let needUpdate = false;
         for (let item of items) {
             const itemCode = (item as HTMLDivElement).innerText.replace(/\s/g, "");
-            if (document.getElementById(`video-${itemCode}`)) {
+            if (document.getElementById(`find-${itemCode}`)) {
                 break;
             }
             const findElement = document.createElement("a");
             findElement.href = `https://turbo-pvz.ozon.ru/search?filter={%22search%22:%22${itemCode}%22}`;
             findElement.innerText = "Поиск";
             findElement.target = "_blank";
+            findElement.id = `find-${itemCode}`;
             item.parentNode.appendChild(findElement);
-            const videoElement = document.createElement("a");
-            videoElement.innerText = "Видео";
-            videoElement.id = `video-${itemCode}`;
-            videoElement.target = "_blank";
-            const ozonItem = this.findOzonItem(itemCode);
-            if (ozonItem) {
-                const receiveTime = await this.getItemReceiveTime(ozonItem.id);
-                const url = `${chrome.runtime.getURL("video.html")}?store=${this.storeId}&start=${receiveTime.getTime() / 1000 | 0}`;
-                videoElement.href = url;
-            } else {
-                needUpdate = true;
-                videoElement.href = "#";
-                videoElement.onclick = (event) => {
-                    event.preventDefault();
-                    ozonRequest<OzonFind>(`https://turbo-pvz.ozon.ru/api/article-tracking/Article/find?name=${itemCode}&isManualInput=true`, this.token).then(findJson => {
-                        const itemId = findJson.id;
-                        this.getItemReceiveTime(ozonItem.id).then(receiveTime => {
-                            const url = `${chrome.runtime.getURL("video.html")}?store=${this.storeId}&start=${receiveTime.getTime() / 1000 | 0}`;
-                            videoElement.href = url;
-                            videoElement.onclick = null;
-                            window.open(url, '_blank').focus();
-                        })
-                    });
-                };
-            }
-            item.parentNode.appendChild(videoElement);
         }
         if (needUpdate) {
             this.updateItems();
         }
     }
-    ozonSearchItemCb(itemId: number) {
-        const item = document.querySelector("[class^=ozi__breadcrumb-content__label__]");
-        if (item && this.storeId) {
+    ozonSearchItemCb() {
+        const cells = document.querySelectorAll<HTMLSpanElement>("[class^=_step_] span:nth-child(2)");
+        console.log
+        if (cells.length > 0 && this.storeId) {
             clearInterval(this.ozonSearchItemTimer);
             this.ozonSearchItemTimer = null;
-            this.getItemReceiveTime(itemId).then(receiveDate => {
-                const el = document.createElement("a");
-                el.href = `${chrome.runtime.getURL("video.html")}?store=${this.storeId}&start=${receiveDate.getTime() / 1000 | 0}`;
-                el.innerText = " (Видео)";
-                el.target = "_blank";
-                item.appendChild(el);
-            });
+            for (let cell of cells) {
+                const m = cell.innerText.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
+                if (m) {
+                    const receiveDate = new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:${m[6]}`);
+                    const el = document.createElement("a");
+                    el.href = `${chrome.runtime.getURL("video.html")}?store=${this.storeId}&start=${receiveDate.getTime() / 1000 | 0}`;
+                    el.innerText = cell.innerText;
+                    el.target = "_blank";
+                    cell.innerHTML = '';
+                    cell.appendChild(el);
+                }
+            }
         }
     }
     isAccepted() {
