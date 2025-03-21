@@ -245,7 +245,7 @@ export default class Ozon {
             if (!this.ozonSearchItemTimer) {
                 const m = url.match(pageTypes.ozonSearchItem);
                 if (m) {
-                    this.ozonSearchItemTimer = setInterval(this.ozonSearchItemCb, 1000);
+                    this.ozonSearchItemTimer = setInterval(() => this.ozonSearchItemCb(), 1000);
                 }
             }
         } else if (this.pageWorker.options.ozon_video && pageType === "ozonOrdersAction") {
@@ -283,7 +283,6 @@ export default class Ozon {
     }
     ozonSearchItemCb() {
         const cells = document.querySelectorAll<HTMLSpanElement>("[class^=_step_] span:nth-child(2)");
-        console.log
         if (cells.length > 0 && this.storeId) {
             clearInterval(this.ozonSearchItemTimer);
             this.ozonSearchItemTimer = null;
