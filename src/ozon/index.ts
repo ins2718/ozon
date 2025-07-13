@@ -23,6 +23,8 @@ export default class Ozon {
     currentScrom: string = "";
     shelfs: { [key: number]: number; } = { 1020000952515000: 315, 1020002141586000: 4, 15592743073000: 31 };
     ozonSearchItemTimer: NodeJS.Timeout;
+    informerSuffix: string = "";
+    informerButtonSuffix: string = "";
 
     constructor(pageWorker: PageWorker) {
         this.checkToken();
@@ -32,6 +34,7 @@ export default class Ozon {
         this.speechSynthesisUtterance = new SpeechSynthesisUtterance();
         this.voices = speechSynthesis.getVoices().filter(s => s.lang === "ru-RU");
         this.setUserVoice();
+        this.findClassNameSuffix();
     }
     isEventIntercepted() {
         return ["ozonInventory", "ozonReceive"].includes(this.pageWorker.pageType);
@@ -55,6 +58,35 @@ export default class Ozon {
                 }
             };
             localStorage.setItem(userName, JSON.stringify(userInfo));
+        }
+    }
+    findClassNameSuffix() {
+        const parseRule = (rule: CSSRule) => {
+            if (rule instanceof CSSLayerBlockRule) {
+                for (const innerRule of rule.cssRules) {
+                    if (innerRule instanceof CSSStyleRule) {
+                        parseRule(innerRule);
+                    }
+                }
+            } else if (rule instanceof CSSStyleRule) {
+                let m = rule.selectorText.match(/\.ozi__informer__informer__(\w+)/);
+                if (m) {
+                    this.informerSuffix = m[1];
+                    return;
+                }
+                m = rule.selectorText.match(/\.ozi__button__button__(\w+)/);
+                if (m) {
+                    this.informerButtonSuffix = m[1];
+                    return;
+                }
+            }
+        }
+        for (const sheet of document.styleSheets) {
+            try {
+                for (const rule of sheet.cssRules) {
+                    parseRule(rule);
+                }
+            } catch (e) { }
         }
     }
     checkToken(): string | null {
@@ -350,13 +382,13 @@ export default class Ozon {
                         let itemsWrap = document.querySelector(`._logs_${hash}_2`);
                         if (!itemsWrap) {
                             itemsWrap = document.createElement("div");
-                            itemsWrap.className = `._logs_${hash}_2`;
+                            itemsWrap.className = `_logs_${hash}_2`;
                             wrap.appendChild(itemsWrap);
                         }
                         const el = document.createElement("div");
                         el.dataset.testid = "logItemBlock";
-                        el.className = `ozi__informer__informer__HzSFx ozi-body-500 ozi__informer__size-500__HzSFx ozi__informer__${type}__HzSFx ozi__informer__showAccentLine__HzSFx`;
-                        el.innerHTML = `<div class="_logContent_${hash}_11"><div class="_addressInner_${hash}_82"><div class="_addressBadge_${hash}_87 ozi-heading-500 _addressBadgeDefault_${hash}_114" data-testid="logItemPlace">${resp.data.shelf}-${resp.data.num}</div><div><button data-testid="relocateBtn" type="submit" class="ozi__button__button__TAOtz ozi__button__size-400__TAOtz ozi-body-500-true ozi__button__uncontained__TAOtz ozi__button__hug__TAOtz ozi__button__light__TAOtz ozi__button__noLeftRadius__TAOtz ozi__button__noRightRadius__TAOtz"><div class="ozi__button__content__TAOtz"><!----><div class="ozi__truncate__truncate__7a-6_ ozi__button__text__TAOtz">Изменить</div><!----></div><!----></button><!----></div></div><div class="_logItem_${hash}_17"><div class="_logTitle_${hash}_23"><div class="ozi__text-view__textView__ff2BT ozi__text-view__headline-h5__ff2BT ozi-heading-100 ozi__text-view__light__ff2BT ozi__text-view__paddingBottomOff__ff2BT ozi__text-view__paddingTopOff__ff2BT">Отправление ${resp.data.code}</div><span class="_logDate_${hash}_29">${resp.data.created_at}</span></div><div class="ozi__text-view__textView__ff2BT ozi__text-view__caption-medium__ff2BT ozi-body-500 ozi__text-view__light__ff2BT ozi__text-view__paddingBottomOff__ff2BT ozi__text-view__paddingTopOff__ff2BT ozi__text-view__caption__ff2BT">Предмет уже числится на складе. Воспользуйтесь поиском отправлений, чтобы убедиться в этом.</div><div class="_info_${hash}_47 _infoInner_${hash}_52"><button data-testid="compositionBtn" type="submit" class="ozi__button__button__TAOtz ozi__button__size-400__TAOtz ozi-body-500-true ozi__button__uncontained__TAOtz ozi__button__hug__TAOtz ozi__button__light__TAOtz ozi__button__hasLeftIcon__TAOtz ozi__button__noLeftRadius__TAOtz ozi__button__noRightRadius__TAOtz"><div class="ozi__button__content__TAOtz"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" class="" viewBox="0 0 24 24"><path fill="currentColor" d="M6.293 9.293a1 1 0 0 1 1.414 0L12 13.586l4.293-4.293a1 1 0 1 1 1.414 1.414l-5 5a1 1 0 0 1-1.414 0l-5-5a1 1 0 0 1 0-1.414"></path></svg><div class="ozi__truncate__truncate__7a-6_ ozi__button__text__TAOtz">Состав отправления</div><!----></div><!----></button><!----></div></div></div>`;
+                        el.className = `ozi__informer__informer__${this.informerSuffix} ozi-body-500 ozi__informer__size-500__${this.informerSuffix} ozi__informer__${type}__${this.informerSuffix} ozi__informer__showAccentLine__${this.informerSuffix}`;
+                        el.innerHTML = `<div class="_logContent_${hash}_11"><div class="_addressInner_${hash}_82"><div class="_addressBadge_${hash}_87 ozi-heading-500 _addressBadgeDefault_${hash}_114" data-testid="logItemPlace">${resp.data.shelf}-${resp.data.num}</div><div><button data-testid="relocateBtn" type="submit" class="ozi__button__button__${this.informerButtonSuffix} ozi__button__size-400__${this.informerButtonSuffix} ozi-body-500-true ozi__button__uncontained__${this.informerButtonSuffix} ozi__button__hug__${this.informerButtonSuffix} ozi__button__light__${this.informerButtonSuffix} ozi__button__noLeftRadius__${this.informerButtonSuffix} ozi__button__noRightRadius__${this.informerButtonSuffix}"><div class="ozi__button__content__${this.informerButtonSuffix}"><!----><div class="ozi__truncate__truncate__7a-6_ ozi__button__text__${this.informerButtonSuffix}">Изменить</div><!----></div><!----></button><!----></div></div><div class="_logItem_${hash}_17"><div class="_logTitle_${hash}_23"><div class="ozi__text-view__textView__ff2BT ozi__text-view__headline-h5__ff2BT ozi-heading-100 ozi__text-view__light__ff2BT ozi__text-view__paddingBottomOff__ff2BT ozi__text-view__paddingTopOff__ff2BT">Отправление ${resp.data.code}</div><span class="_logDate_${hash}_29">${resp.data.created_at}</span></div><div class="ozi__text-view__textView__ff2BT ozi__text-view__caption-medium__ff2BT ozi-body-500 ozi__text-view__light__ff2BT ozi__text-view__paddingBottomOff__ff2BT ozi__text-view__paddingTopOff__ff2BT ozi__text-view__caption__ff2BT">Предмет уже числится на складе. Воспользуйтесь поиском отправлений, чтобы убедиться в этом.</div><div class="_info_${hash}_47 _infoInner_${hash}_52"><button data-testid="compositionBtn" type="submit" class="ozi__button__button__${this.informerButtonSuffix} ozi__button__size-400__${this.informerButtonSuffix} ozi-body-500-true ozi__button__uncontained__${this.informerButtonSuffix} ozi__button__hug__${this.informerButtonSuffix} ozi__button__light__${this.informerButtonSuffix} ozi__button__hasLeftIcon__${this.informerButtonSuffix} ozi__button__noLeftRadius__${this.informerButtonSuffix} ozi__button__noRightRadius__${this.informerButtonSuffix}"><div class="ozi__button__content__${this.informerButtonSuffix}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" class="" viewBox="0 0 24 24"><path fill="currentColor" d="M6.293 9.293a1 1 0 0 1 1.414 0L12 13.586l4.293-4.293a1 1 0 1 1 1.414 1.414l-5 5a1 1 0 0 1-1.414 0l-5-5a1 1 0 0 1 0-1.414"></path></svg><div class="ozi__truncate__truncate__7a-6_ ozi__button__text__${this.informerButtonSuffix}">Состав отправления</div><!----></div><!----></button><!----></div></div></div>`;
                         const firstChild = itemsWrap.firstElementChild as HTMLDivElement;
                         if (!firstChild) {
                             itemsWrap.prepend(el);
