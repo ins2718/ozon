@@ -9,7 +9,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL("pdf.worker.min.j
 
 export default class Ozon {
     pageWorker: PageWorker;
-    missedOzonItems: { [key: number]: OzonItem[]; };
+    // missedOzonItems: { [key: number]: OzonItem[]; };
     ozonItems: OzonItem[];
     token: string = null;
     storeId: number = null;
@@ -28,7 +28,7 @@ export default class Ozon {
         this.checkToken();
         this.pageWorker = pageWorker;
         this.ozonItems = JSON.parse(localStorage.getItem("ozonItems") ?? "[]");
-        this.missedOzonItems = Object.fromEntries(JSON.parse(localStorage.getItem("missedOzonItems") ?? "[]"));
+        // this.missedOzonItems = Object.fromEntries(JSON.parse(localStorage.getItem("missedOzonItems") ?? "[]"));
         this.speechSynthesisUtterance = new SpeechSynthesisUtterance();
         this.voices = speechSynthesis.getVoices().filter(s => s.lang === "ru-RU");
         this.setUserVoice();
@@ -157,58 +157,58 @@ export default class Ozon {
             isPending: false,
             name: this.parseName(article.name),
         }));
-        const missedItems: { [key: number]: OzonItem[] } = [];
-        const regExps = [barcodeTypes.ozonLargeCodePublicTemplate, barcodeTypes.ozonSmallCodeTemplate, barcodeTypes.ozonFreshCodeTemplate].map(regExp => new RegExp(regExp.source.substring(1, regExp.source.length - 1)))
-        const today = new Date();
-        const finishedCarriages = await ozonRequest<{ finishedCarriages: OzonFinishedCarriages[] }>(`https://turbo-pvz.ozon.ru/api/inbound/Carriages/finished?limit=30&mode=All&beginDate=${(new Date(today.getTime() - 1000 * 60 * 60 * 24 * 14)).toISOString().substring(0, 10)}&endDate=${today.toISOString().substring(0, 10)}`, this.token);
-        for (let carriage of finishedCarriages.finishedCarriages) {
-            if (carriage.carriageId in this.missedOzonItems) {
-                missedItems[carriage.carriageId] = this.missedOzonItems[carriage.carriageId];
-                continue;
-            }
-            let save = false;
-            missedItems[carriage.carriageId] = [];
-            for (let document of carriage.documentsV2) {
-                if (document.documentType === "DocumentsMismatchAct") {
-                    save = true;
-                    const pdfUrl = `https://turbo-pvz.ozon.ru/api/inbound/Documents/download?transportationId=${carriage.carriageId}&documentId=${document.documentId}&documentType=${document.documentType}`;
-                    try {
-                        const blobUrl = await ozonRequestUrl(pdfUrl, token);
-                        const loadingTask = pdfjsLib.getDocument(blobUrl);
-                        const pdfDocument = await loadingTask.promise;
-                        for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber++) {
-                            const page = await pdfDocument.getPage(pageNumber);
-                            const textContent = await page.getTextContent();
-                            const pageText = textContent.items.map(item => "str" in item ? item.str : "").join("");
-                            const regExp = /Отправление [\s-\di\(\)]+ шт/g;
-                            for (let match of pageText.matchAll(regExp)) {
-                                for (let codeRegExp of regExps) {
-                                    const m = match[0].match(codeRegExp);
-                                    if (m) {
-                                        const item = await ozonRequest<OzonShortArticle>(`https://turbo-pvz.ozon.ru/api/article-tracking/Article/find?name=${m[0]}&isManualInput=true`, token);
-                                        const ozonItem = {
-                                            id: item.id,
-                                            barcode: item.name,
-                                            isPending: false
-                                        };
-                                        missedItems[carriage.carriageId].push(ozonItem);
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        continue;
-                    }
-                }
-            }
-            if (!save) {
-                delete missedItems[carriage.carriageId];
-            }
-        }
-        this.missedOzonItems = missedItems;
-        localStorage.setItem("missedOzonItems", JSON.stringify(Object.entries(missedItems)));
-        Object.values(missedItems).forEach(missedItems => missedItems.forEach(missedItem => items.push(missedItem)));
+        // const missedItems: { [key: number]: OzonItem[] } = [];
+        // const regExps = [barcodeTypes.ozonLargeCodePublicTemplate, barcodeTypes.ozonSmallCodeTemplate, barcodeTypes.ozonFreshCodeTemplate].map(regExp => new RegExp(regExp.source.substring(1, regExp.source.length - 1)))
+        // const today = new Date();
+        // const finishedCarriages = await ozonRequest<{ finishedCarriages: OzonFinishedCarriages[] }>(`https://turbo-pvz.ozon.ru/api/inbound/Carriages/finished?limit=30&mode=All&beginDate=${(new Date(today.getTime() - 1000 * 60 * 60 * 24 * 14)).toISOString().substring(0, 10)}&endDate=${today.toISOString().substring(0, 10)}`, this.token);
+        // for (let carriage of finishedCarriages.finishedCarriages) {
+        //     if (carriage.carriageId in this.missedOzonItems) {
+        //         missedItems[carriage.carriageId] = this.missedOzonItems[carriage.carriageId];
+        //         continue;
+        //     }
+        //     let save = false;
+        //     missedItems[carriage.carriageId] = [];
+        //     for (let document of carriage.documentsV2) {
+        //         if (document.documentType === "DocumentsMismatchAct") {
+        //             save = true;
+        //             const pdfUrl = `https://turbo-pvz.ozon.ru/api/inbound/Documents/download?transportationId=${carriage.carriageId}&documentId=${document.documentId}&documentType=${document.documentType}`;
+        //             try {
+        //                 const blobUrl = await ozonRequestUrl(pdfUrl, token);
+        //                 const loadingTask = pdfjsLib.getDocument(blobUrl);
+        //                 const pdfDocument = await loadingTask.promise;
+        //                 for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber++) {
+        //                     const page = await pdfDocument.getPage(pageNumber);
+        //                     const textContent = await page.getTextContent();
+        //                     const pageText = textContent.items.map(item => "str" in item ? item.str : "").join("");
+        //                     const regExp = /Отправление [\s-\di\(\)]+ шт/g;
+        //                     for (let match of pageText.matchAll(regExp)) {
+        //                         for (let codeRegExp of regExps) {
+        //                             const m = match[0].match(codeRegExp);
+        //                             if (m) {
+        //                                 const item = await ozonRequest<OzonShortArticle>(`https://turbo-pvz.ozon.ru/api/article-tracking/Article/find?name=${m[0]}&isManualInput=true`, token);
+        //                                 const ozonItem = {
+        //                                     id: item.id,
+        //                                     barcode: item.name,
+        //                                     isPending: false
+        //                                 };
+        //                                 missedItems[carriage.carriageId].push(ozonItem);
+        //                                 break;
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //             } catch (e) {
+        //                 continue;
+        //             }
+        //         }
+        //     }
+        //     if (!save) {
+        //         delete missedItems[carriage.carriageId];
+        //     }
+        // }
+        // this.missedOzonItems = missedItems;
+        // localStorage.setItem("missedOzonItems", JSON.stringify(Object.entries(missedItems)));
+        // Object.values(missedItems).forEach(missedItems => missedItems.forEach(missedItem => items.push(missedItem)));
         localStorage.setItem("ozonItems", JSON.stringify(items));
         this.ozonItems = items;
         console.log(items);
