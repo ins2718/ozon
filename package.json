@@ -21,7 +21,9 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "@alexssmusica/node-printer": "^0.8.1",
     "@types/dom-navigation": "^1.0.4",
+    "express": "^5.1.0",
     "pdfjs-dist": "^4.10.38"
   }
 }

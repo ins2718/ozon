@@ -8,6 +8,7 @@ module.exports = {
         "content-script": "./src/content-script.ts",
         background: "./src/background.ts",
         options: "./src/options.ts",
+        "print-server": "./src/print-server/index.ts",
         "pdf.worker.min": "./node_modules/pdfjs-dist/build/pdf.worker.min.mjs"
     },
     output: {
@@ -29,6 +30,10 @@ module.exports = {
     resolve: {
         extensions: [".ts", ".js"],
     },
+    externals: [{
+        express: "commonjs express",
+        "@alexssmusica/node-printer": "commonjs @alexssmusica/node-printer",
+    }],
     plugins: [
         new CopyWebpackPlugin({
             patterns: [
