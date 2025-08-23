@@ -25,6 +25,9 @@ export default class PageWorker {
         if (!("ozon_video" in options)) {
             options.ozon_video = false;
         }
+        if (!("ozon_print" in options)) {
+            options.ozon_print = false;
+        }
         console.log("options", options);
         this.options = options;
     }

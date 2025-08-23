@@ -36,6 +36,7 @@ interface OzonItem {
 interface Options {
     ozon_learning?: boolean;
     ozon_video?: boolean;
+    ozon_print?: boolean;
 }
 
 interface OzonArrival {
@@ -254,4 +255,11 @@ interface OzonFind {
     currentPlaceName: string;
     currentPlaceId: number;
     articleTypeName: "Отправление";
+}
+
+interface AvitoSellerDocument {
+    type: "PASSPORT" | "OTHER_COUNTRY_PASSPORT" | "TRAVEL_PASSPORT_DATA" | "MILITARY_ID" | "OTHER";
+    name: string;
+    number: string;
+    documentName?: string;
 }

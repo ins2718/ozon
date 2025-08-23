@@ -25,6 +25,8 @@ export default class Ozon {
     ozonSearchItemTimer: NodeJS.Timeout;
     informerSuffix: string = "";
     informerButtonSuffix: string = "";
+    ozonReceiveTimer: NodeJS.Timeout;
+    ozonReceiveTimerLastItem: HTMLDivElement | null | undefined = undefined;
 
     constructor(pageWorker: PageWorker) {
         this.checkToken();
@@ -35,6 +37,7 @@ export default class Ozon {
         this.voices = speechSynthesis.getVoices().filter(s => s.lang === "ru-RU");
         this.setUserVoice();
         this.findClassNameSuffix();
+        console.log(this)
     }
     isEventIntercepted() {
         return ["ozonInventory", "ozonReceive"].includes(this.pageWorker.pageType);
@@ -247,11 +250,36 @@ export default class Ozon {
         this.lastUpdate = now;
         localStorage.setItem(`${this.storeId}-ozonLastUpdate`, now.toString());
     }
+    ozonReceiveCb() {
+        if (this.ozonReceiveTimerLastItem === undefined) {
+            this.ozonReceiveTimerLastItem = document.querySelector("[class^='_logs_']>div:first-child");
+            return
+        }
+        const next = (this.ozonReceiveTimerLastItem === null ? document.querySelector("[class^='_logs_']>div:first-child") : this.ozonReceiveTimerLastItem.previousElementSibling) as HTMLDivElement;
+        if (next && next.dataset.testid === "logItemBlock") {
+            this.ozonReceiveTimerLastItem = next;
+            const textNode = next.querySelector("[data-testid='logItemPlace']")?.textContent?.trim() ?? "";
+            const num = textNode.match(/^(\d+)-\d+$/);
+            if (num) {
+                console.log(+num[1], next.className.includes("success"), next.className.includes("warning"));
+                chrome.runtime.sendMessage({ type: "print", payload: +num[1] });
+            }
+        }
+    }
     async updatePage(url: string) {
         const pageType = getPageType(url);
         if (this.ozonSearchItemTimer && !["ozonSearchItem", "ozonOrdersAction"].includes(pageType)) {
             clearInterval(this.ozonSearchItemTimer);
             this.ozonSearchItemTimer = null;
+        }
+        if (this.pageWorker.options.ozon_video) {
+            if (!this.ozonReceiveTimer && pageType === "ozonReceive") {
+                this.ozonReceiveTimer = setInterval(() => this.ozonReceiveCb(), 250);
+            } else if (this.ozonReceiveTimer) {
+                clearInterval(this.ozonReceiveTimer);
+                this.ozonReceiveTimer = null;
+                this.ozonReceiveTimerLastItem = undefined;
+            }
         }
         if (["ozonInventory", "ozonReceive"].includes(pageType)) {
             if (!this.loaded) {
@@ -393,10 +421,7 @@ export default class Ozon {
                         if (!firstChild) {
                             itemsWrap.prepend(el);
                         } else {
-                            firstChild.after(firstChild.cloneNode(true));
-                            firstChild.dataset.testid = el.outerHTML;
-                            firstChild.className = el.className;
-                            firstChild.innerHTML = el.innerHTML;
+                            itemsWrap.insertBefore(el, firstChild);
                         }
                     });
                 } else {
