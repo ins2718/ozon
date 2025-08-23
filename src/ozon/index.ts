@@ -251,11 +251,26 @@ export default class Ozon {
         localStorage.setItem(`${this.storeId}-ozonLastUpdate`, now.toString());
     }
     ozonReceiveCb() {
+        if (!this.pageWorker.options.ozon_print) {
+            return;
+        }
         if (this.ozonReceiveTimerLastItem === undefined) {
             this.ozonReceiveTimerLastItem = document.querySelector("[class^='_logs_']>div:first-child");
             return
         }
-        const next = (this.ozonReceiveTimerLastItem === null ? document.querySelector("[class^='_logs_']>div:first-child") : this.ozonReceiveTimerLastItem.previousElementSibling) as HTMLDivElement;
+        let next = null;
+        if (this.ozonReceiveTimerLastItem && this.ozonReceiveTimerLastItem.parentElement.classList.contains("tmp")) {
+            const logs = document.querySelectorAll<HTMLDivElement>("[class^='_logs_']>div:first-child");
+            if (logs.length > 1 && logs[0].dataset.testid === "logItemBlock") {
+                this.ozonReceiveTimerLastItem = logs[0];
+                next = this.ozonReceiveTimerLastItem;
+            } else {
+                return;
+            }
+        }
+        if (!next) {
+            next = (this.ozonReceiveTimerLastItem === null ? document.querySelector("[class^='_logs_']>div:first-child") : this.ozonReceiveTimerLastItem.previousElementSibling) as HTMLDivElement;
+        }
         if (next && next.dataset.testid === "logItemBlock") {
             this.ozonReceiveTimerLastItem = next;
             const textNode = next.querySelector("[data-testid='logItemPlace']")?.textContent?.trim() ?? "";
@@ -272,14 +287,14 @@ export default class Ozon {
             clearInterval(this.ozonSearchItemTimer);
             this.ozonSearchItemTimer = null;
         }
-        if (this.pageWorker.options.ozon_video) {
-            if (!this.ozonReceiveTimer && pageType === "ozonReceive") {
+        if (pageType === "ozonReceive") {
+            if (!this.ozonReceiveTimer && this.pageWorker.options.ozon_print) {
                 this.ozonReceiveTimer = setInterval(() => this.ozonReceiveCb(), 250);
-            } else if (this.ozonReceiveTimer) {
-                clearInterval(this.ozonReceiveTimer);
-                this.ozonReceiveTimer = null;
-                this.ozonReceiveTimerLastItem = undefined;
             }
+        } else if (this.ozonReceiveTimer) {
+            clearInterval(this.ozonReceiveTimer);
+            this.ozonReceiveTimer = null;
+            this.ozonReceiveTimerLastItem = undefined;
         }
         if (["ozonInventory", "ozonReceive"].includes(pageType)) {
             if (!this.loaded) {
@@ -410,7 +425,7 @@ export default class Ozon {
                         let itemsWrap = document.querySelector(`._logs_${hash}_2`);
                         if (!itemsWrap) {
                             itemsWrap = document.createElement("div");
-                            itemsWrap.className = `_logs_${hash}_2`;
+                            itemsWrap.className = `_logs_${hash}_2 tmp`;
                             wrap.appendChild(itemsWrap);
                         }
                         const el = document.createElement("div");
@@ -421,7 +436,13 @@ export default class Ozon {
                         if (!firstChild) {
                             itemsWrap.prepend(el);
                         } else {
-                            itemsWrap.insertBefore(el, firstChild);
+                            firstChild.after(firstChild.cloneNode(true));
+                            firstChild.dataset.testid = el.outerHTML;
+                            firstChild.className = el.className;
+                            firstChild.innerHTML = el.innerHTML;
+                            if (this.pageWorker.options.ozon_print) {
+                                chrome.runtime.sendMessage({ type: "print", payload: resp.data.shelf });
+                            }
                         }
                     });
                 } else {
