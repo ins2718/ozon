@@ -14,7 +14,18 @@ function middleText(text: string, size: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8, xScale: n
     return `TEXT ${width / 2 - columns * charWidth / 2},${height / 2 - rows * charHeight / 2},"${size}",0,${xScale},${yScale},"${text}"`
 }
 
+function underlineForMiddleText(text: string, size: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8, xScale: number = 1, yScale: number = 1, bold: number = 5): string {
+    const width = 240;
+    const height = 160;
+    const rows = 1;
+    const columns = text.length;
+    const charWidth = [0, 8, 12, 16, 24, 32, 14, 21, 14][size] * xScale;
+    const charHeight = [0, 12, 20, 24, 32, 48, 19, 27, 25][size] * yScale;
+    return `BAR ${width / 2 - columns * charWidth / 2},${height / 2 - rows * charHeight / 2 + charHeight + bold},${charWidth * columns},${bold}`;
+}
+
 async function printNumber(number: number): Promise<void> {
+    const str = number.toString();
     const tspl = [
         "<ESC>!R",
         "SIZE 30 mm,20 mm",
@@ -23,8 +34,8 @@ async function printNumber(number: number): Promise<void> {
         "REFERENCE 0,0",
         "OFFSET 0",
         "CLS",
-        middleText(number.toString(), 5, 2, 2),
-        // `BARCODE 0,0,"39",80,1,0,2,4,"ii9429991971"`,
+        middleText(str, 5, 2, 2),
+        underlineForMiddleText(str, 5, 2, 2, 5),
         "PRINT 1",
         "END",
     ].join("\r\n");
