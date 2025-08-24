@@ -395,7 +395,7 @@ export default class Ozon {
             type = "ozonSmallCodeTemplate";
         }
         if (["ozonSmallCodeTemplate", "ozonLargeCodeTemplate", "ozonFreshCodeTemplate"].includes(type)) {
-            if (this.findOzonItem(code)) {
+            if (true || this.findOzonItem(code)) {
                 this.pageWorker.send(code);
             } else {
                 if (this.pageWorker.pageType === "ozonReceive") {
