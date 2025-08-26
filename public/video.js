@@ -5,8 +5,8 @@ const options = {
     "15592743073000": {
         codes: ["oAfNNZ1764oxJh9Z", "ECPE5KpLhGqczcxM"],
     },
-    "1020002141586000": {
-        codes: ["tffryunMkANVN5vT"],
+    "1020005000262691": {
+        codes: [],
     }
 };
 const urlParams = new URLSearchParams(window.location.search);
