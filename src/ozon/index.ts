@@ -17,11 +17,9 @@ export default class Ozon {
     loaded: boolean = false;
     speechSynthesisUtterance: SpeechSynthesisUtterance = null;
     voices: SpeechSynthesisVoice[];
-    boxNum: number = 0;
     lastUpdate: number = 0;
     lastLearning: number = 0;
     currentScrom: string = "";
-    shelfs: { [key: number]: number; } = { 1020000952515000: 315, 1020002141586000: 4, 15592743073000: 31 };
     ozonSearchItemTimer: NodeJS.Timeout;
     informerSuffix: string = "";
     informerButtonSuffix: string = "";
@@ -108,29 +106,11 @@ export default class Ozon {
         if (!token) {
             return null;
         }
-        this.boxNum = 0;
         const storeId = parsedItem.StoreId;
         if (storeId) {
             this.lastUpdate = +(localStorage.getItem(`${storeId}-ozonLastUpdate`) ?? "0");
             this.storeId = storeId;
             this.userName = parsedItem.UserName ?? null;
-            const lastBoxNum = +(localStorage.getItem(`boxNum${this.storeId}`) ?? 0);
-            if (!lastBoxNum && (storeId in this.shelfs)) {
-                this.boxNum = this.shelfs[storeId];
-            }
-            ozonRequest<{ shelves: OzonShelf[] }>("https://turbo-pvz.ozon.ru/api/inbound/address_storage/empty-shelves", token).then(json => {
-                let shelf: OzonShelf | null = null;
-                if (json.shelves.length > 0) {
-                    shelf = json.shelves[0];
-                }
-                panelRequest<{ data: OzonPvzInfo }>(`https://api.limpiarmuebles.pro/pvz/${storeId}?empty-shelf=${shelf.address}`).then(pvz => {
-                    this.boxNum = pvz.data.shelf;
-                    localStorage.setItem(`boxNum${this.storeId}`, this.boxNum.toString());
-                    // if (this.boxNum === +shelf.address) {
-                    //     ozonRequest(`https://turbo-pvz.ozon.ru/api/address-storage/Agent/structure/remove-element?elementId=${json.shelves[0].id}`, token, "DELETE");
-                    // }
-                });
-            });
         }
         this.token = token;
         return token;
@@ -276,7 +256,7 @@ export default class Ozon {
             const textNode = next.querySelector("[data-testid='logItemPlace']")?.textContent?.trim() ?? "";
             const num = textNode.match(/^(\d+)-\d+$/);
             if (num) {
-                console.log(+num[1], next.className.includes("success"), next.className.includes("warning"));
+                // console.log(+num[1], next.className.includes("success"), next.className.includes("warning"));
                 chrome.runtime.sendMessage({ type: "print", payload: +num[1] });
             }
         }
@@ -385,7 +365,7 @@ export default class Ozon {
         }
         return null;
     }
-    checkCode(code: string, type: BarcodeType): boolean {
+    async checkCode(code: string, type: BarcodeType): Promise<boolean> {
         if (type === "ozonBoxCodeTemplate") {
             this.pageWorker.send(code);
             return true;
@@ -395,56 +375,22 @@ export default class Ozon {
             type = "ozonSmallCodeTemplate";
         }
         if (["ozonSmallCodeTemplate", "ozonLargeCodeTemplate", "ozonFreshCodeTemplate"].includes(type)) {
-            if (true || this.findOzonItem(code)) {
+            let found = this.findOzonItem(code);
+            if (found) {
                 this.pageWorker.send(code);
             } else {
                 if (this.pageWorker.pageType === "ozonReceive") {
                     this.updateItems();
-                    fetch("https://api.limpiarmuebles.pro/ozon-codes", {
-                        method: 'POST',
-                        headers: {
-                            "content-type": "application/json;charset=UTF-8",
-                        },
-                        body: JSON.stringify({ store_id: this.storeId, code: code, }),
-                    }).then(resp => resp.json()).then(resp => {
-                        if (!resp.data.shelf) {
-                            (new Audio(chrome.runtime.getURL("sounds/error.mp3"))).play();
-                            return;
-                        }
-                        const type = resp.data.total_scans === 1 ? "success" : "warning";
-                        (new Audio(chrome.runtime.getURL(`sounds/${type}.mp3`))).play().then(() => this.textToScpeech(resp.data.shelf.toString()));
-                        const wrap = document.querySelector("[class^=_logsWrapper_]");
-                        if (!wrap) {
-                            return;
-                        }
-                        const hash = wrap.className.match(/_logsWrapper_([^_]+)_7/)[1];
-                        const emtyItem = document.querySelector("[data-testid='empty-block-error']");
-                        if (emtyItem) {
-                            emtyItem.remove();
-                        }
-                        let itemsWrap = document.querySelector(`._logs_${hash}_2`);
-                        if (!itemsWrap) {
-                            itemsWrap = document.createElement("div");
-                            itemsWrap.className = `_logs_${hash}_2 tmp`;
-                            wrap.appendChild(itemsWrap);
-                        }
-                        const el = document.createElement("div");
-                        el.dataset.testid = "logItemBlock";
-                        el.className = `ozi__informer__informer__${this.informerSuffix} ozi-body-500 ozi__informer__size-500__${this.informerSuffix} ozi__informer__${type}__${this.informerSuffix} ozi__informer__showAccentLine__${this.informerSuffix}`;
-                        el.innerHTML = `<div class="_logContent_${hash}_11"><div class="_addressInner_${hash}_82"><div class="_addressBadge_${hash}_87 ozi-heading-500 _addressBadgeDefault_${hash}_114" data-testid="logItemPlace">${resp.data.shelf}-${resp.data.num}</div><div><button data-testid="relocateBtn" type="submit" class="ozi__button__button__${this.informerButtonSuffix} ozi__button__size-400__${this.informerButtonSuffix} ozi-body-500-true ozi__button__uncontained__${this.informerButtonSuffix} ozi__button__hug__${this.informerButtonSuffix} ozi__button__light__${this.informerButtonSuffix} ozi__button__noLeftRadius__${this.informerButtonSuffix} ozi__button__noRightRadius__${this.informerButtonSuffix}"><div class="ozi__button__content__${this.informerButtonSuffix}"><!----><div class="ozi__truncate__truncate__7a-6_ ozi__button__text__${this.informerButtonSuffix}">Изменить</div><!----></div><!----></button><!----></div></div><div class="_logItem_${hash}_17"><div class="_logTitle_${hash}_23"><div class="ozi__text-view__textView__ff2BT ozi__text-view__headline-h5__ff2BT ozi-heading-100 ozi__text-view__light__ff2BT ozi__text-view__paddingBottomOff__ff2BT ozi__text-view__paddingTopOff__ff2BT">Отправление ${resp.data.code}</div><span class="_logDate_${hash}_29">${resp.data.created_at}</span></div><div class="ozi__text-view__textView__ff2BT ozi__text-view__caption-medium__ff2BT ozi-body-500 ozi__text-view__light__ff2BT ozi__text-view__paddingBottomOff__ff2BT ozi__text-view__paddingTopOff__ff2BT ozi__text-view__caption__ff2BT">Предмет уже числится на складе. Воспользуйтесь поиском отправлений, чтобы убедиться в этом.</div><div class="_info_${hash}_47 _infoInner_${hash}_52"><button data-testid="compositionBtn" type="submit" class="ozi__button__button__${this.informerButtonSuffix} ozi__button__size-400__${this.informerButtonSuffix} ozi-body-500-true ozi__button__uncontained__${this.informerButtonSuffix} ozi__button__hug__${this.informerButtonSuffix} ozi__button__light__${this.informerButtonSuffix} ozi__button__hasLeftIcon__${this.informerButtonSuffix} ozi__button__noLeftRadius__${this.informerButtonSuffix} ozi__button__noRightRadius__${this.informerButtonSuffix}"><div class="ozi__button__content__${this.informerButtonSuffix}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" class="" viewBox="0 0 24 24"><path fill="currentColor" d="M6.293 9.293a1 1 0 0 1 1.414 0L12 13.586l4.293-4.293a1 1 0 1 1 1.414 1.414l-5 5a1 1 0 0 1-1.414 0l-5-5a1 1 0 0 1 0-1.414"></path></svg><div class="ozi__truncate__truncate__7a-6_ ozi__button__text__${this.informerButtonSuffix}">Состав отправления</div><!----></div><!----></button><!----></div></div></div>`;
-                        const firstChild = itemsWrap.firstElementChild as HTMLDivElement;
-                        if (!firstChild) {
-                            itemsWrap.prepend(el);
-                        } else {
-                            firstChild.after(firstChild.cloneNode(true));
-                            firstChild.dataset.testid = el.outerHTML;
-                            firstChild.className = el.className;
-                            firstChild.innerHTML = el.innerHTML;
-                            if (this.pageWorker.options.ozon_print) {
-                                chrome.runtime.sendMessage({ type: "print", payload: resp.data.shelf });
-                            }
-                        }
-                    });
+                    const resp = await panelRequest<{ data: { total_scans: number, shelf: number, num: number, code: string, created_at: string } }>(`https://api.limpiarmuebles.pro/ozon-codes`, { method: "POST", body: JSON.stringify({ store_id: this.storeId, code: code, }) });
+                    if (!resp.data.shelf) {
+                        (new Audio(chrome.runtime.getURL("sounds/error.mp3"))).play();
+                        return true;
+                    }
+                    if (resp.data.shelf > 0) {
+                        this.addLogItem(resp.data.total_scans, resp.data.shelf, resp.data.num, resp.data.code, resp.data.created_at);
+                    } else {
+                        this.pageWorker.send(code);
+                    }
                 } else {
                     (new Audio(chrome.runtime.getURL("sounds/special.mp3"))).play();
                 }
@@ -452,6 +398,41 @@ export default class Ozon {
             return true;
         }
         return false;
+    }
+    addLogItem(total_scans: number, shelf: number, num: number, code: string, created_at: string) {
+        const type = total_scans === 1 ? "success" : "warning";
+        (new Audio(chrome.runtime.getURL(`sounds/${type}.mp3`))).play().then(() => this.textToScpeech(shelf.toString()));
+        const wrap = document.querySelector("[class^=_logsWrapper_]");
+        if (!wrap) {
+            return true;
+        }
+        const hash = wrap.className.match(/_logsWrapper_([^_]+)_7/)[1];
+        const emtyItem = document.querySelector("[data-testid='empty-block-error']");
+        if (emtyItem) {
+            emtyItem.remove();
+        }
+        let itemsWrap = document.querySelector(`._logs_${hash}_2`);
+        if (!itemsWrap) {
+            itemsWrap = document.createElement("div");
+            itemsWrap.className = `_logs_${hash}_2 tmp`;
+            wrap.appendChild(itemsWrap);
+        }
+        const el = document.createElement("div");
+        el.dataset.testid = "logItemBlock";
+        el.className = `ozi__informer__informer__${this.informerSuffix} ozi-body-500 ozi__informer__size-500__${this.informerSuffix} ozi__informer__${type}__${this.informerSuffix} ozi__informer__showAccentLine__${this.informerSuffix}`;
+        el.innerHTML = `<div class="_logContent_${hash}_11"><div class="_addressInner_${hash}_82"><div class="_addressBadge_${hash}_87 ozi-heading-500 _addressBadgeDefault_${hash}_114" data-testid="logItemPlace">${shelf}-${num}</div><div><button data-testid="relocateBtn" type="submit" class="ozi__button__button__${this.informerButtonSuffix} ozi__button__size-400__${this.informerButtonSuffix} ozi-body-500-true ozi__button__uncontained__${this.informerButtonSuffix} ozi__button__hug__${this.informerButtonSuffix} ozi__button__light__${this.informerButtonSuffix} ozi__button__noLeftRadius__${this.informerButtonSuffix} ozi__button__noRightRadius__${this.informerButtonSuffix}"><div class="ozi__button__content__${this.informerButtonSuffix}"><!----><div class="ozi__truncate__truncate__7a-6_ ozi__button__text__${this.informerButtonSuffix}">Изменить</div><!----></div><!----></button><!----></div></div><div class="_logItem_${hash}_17"><div class="_logTitle_${hash}_23"><div class="ozi__text-view__textView__ff2BT ozi__text-view__headline-h5__ff2BT ozi-heading-100 ozi__text-view__light__ff2BT ozi__text-view__paddingBottomOff__ff2BT ozi__text-view__paddingTopOff__ff2BT">Отправление ${code}</div><span class="_logDate_${hash}_29">${created_at}</span></div><div class="ozi__text-view__textView__ff2BT ozi__text-view__caption-medium__ff2BT ozi-body-500 ozi__text-view__light__ff2BT ozi__text-view__paddingBottomOff__ff2BT ozi__text-view__paddingTopOff__ff2BT ozi__text-view__caption__ff2BT">Предмет уже числится на складе. Воспользуйтесь поиском отправлений, чтобы убедиться в этом.</div><div class="_info_${hash}_47 _infoInner_${hash}_52"><button data-testid="compositionBtn" type="submit" class="ozi__button__button__${this.informerButtonSuffix} ozi__button__size-400__${this.informerButtonSuffix} ozi-body-500-true ozi__button__uncontained__${this.informerButtonSuffix} ozi__button__hug__${this.informerButtonSuffix} ozi__button__light__${this.informerButtonSuffix} ozi__button__hasLeftIcon__${this.informerButtonSuffix} ozi__button__noLeftRadius__${this.informerButtonSuffix} ozi__button__noRightRadius__${this.informerButtonSuffix}"><div class="ozi__button__content__${this.informerButtonSuffix}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" class="" viewBox="0 0 24 24"><path fill="currentColor" d="M6.293 9.293a1 1 0 0 1 1.414 0L12 13.586l4.293-4.293a1 1 0 1 1 1.414 1.414l-5 5a1 1 0 0 1-1.414 0l-5-5a1 1 0 0 1 0-1.414"></path></svg><div class="ozi__truncate__truncate__7a-6_ ozi__button__text__${this.informerButtonSuffix}">Состав отправления</div><!----></div><!----></button><!----></div></div></div>`;
+        const firstChild = itemsWrap.firstElementChild as HTMLDivElement;
+        if (!firstChild) {
+            itemsWrap.prepend(el);
+        } else {
+            firstChild.after(firstChild.cloneNode(true));
+            firstChild.dataset.testid = el.outerHTML;
+            firstChild.className = el.className;
+            firstChild.innerHTML = el.innerHTML;
+            if (this.pageWorker.options.ozon_print) {
+                chrome.runtime.sendMessage({ type: "print", payload: shelf });
+            }
+        }
     }
     textToScpeech(text: string) {
         if (this.userName) {

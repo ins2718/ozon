@@ -73,17 +73,17 @@ export default class PageWorker {
         }
         return { type: null, code: null };
     }
-    checkCode() {
+    async checkCode() {
         console.log(this.data);
         let { code, type } = this.getCodeInfo();
         if (!type) {
             return false;
         }
-        if (!this.ozon.checkCode(code, type)) {
+        if (!(await this.ozon.checkCode(code, type))) {
             this.send();
         }
     }
-    keyDown(event: KeyboardEvent) {
+    async keyDown(event: KeyboardEvent) {
         this.event = event;
         this.symbol = this.event.key;
         this.url = document.location.href;
@@ -105,7 +105,7 @@ export default class PageWorker {
             if (this.data) {
                 event.stopImmediatePropagation();
                 event.preventDefault();
-                this.checkCode();
+                await this.checkCode();
                 this.reset();
             }
             return;
