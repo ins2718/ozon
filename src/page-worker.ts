@@ -77,7 +77,7 @@ export default class PageWorker {
         console.log(this.data);
         let { code, type } = this.getCodeInfo();
         if (!type) {
-            return false;
+            return this.send();
         }
         if (!(await this.ozon.checkCode(code, type))) {
             this.send();
