@@ -73,14 +73,14 @@ export default class PageWorker {
         }
         return { type: null, code: null };
     }
-    async checkCode() {
+    checkCode() {
         console.log(this.data);
         let { code, type } = this.getCodeInfo();
         if (!type) {
             return this.send();
         }
-        if (!(await this.ozon.checkCode(code, type))) {
-            this.send();
+        if (!this.ozon.checkCode(code, type)) {
+            //this.send();
         }
     }
     async keyDown(event: KeyboardEvent) {
@@ -105,7 +105,7 @@ export default class PageWorker {
             if (this.data) {
                 event.stopImmediatePropagation();
                 event.preventDefault();
-                await this.checkCode();
+                this.checkCode();
                 this.reset();
             }
             return;

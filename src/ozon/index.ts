@@ -365,7 +365,7 @@ export default class Ozon {
         }
         return null;
     }
-    async checkCode(code: string, type: BarcodeType): Promise<boolean> {
+    checkCode(code: string, type: BarcodeType): boolean {
         if (type === "ozonBoxCodeTemplate") {
             this.pageWorker.send(code);
             return true;
@@ -381,21 +381,22 @@ export default class Ozon {
             } else {
                 if (this.pageWorker.pageType === "ozonReceive") {
                     this.updateItems();
-                    const resp = await panelRequest<{ data: { total_scans: number, shelf: number, num: number, code: string, created_at: string } }>(`https://api.limpiarmuebles.pro/ozon-codes`, { method: "POST", body: JSON.stringify({ store_id: this.storeId, code: code, }) });
-                    if (!resp.data.shelf) {
-                        (new Audio(chrome.runtime.getURL("sounds/error.mp3"))).play();
-                        return true;
-                    }
-                    if (resp.data.shelf > 0) {
-                        this.addLogItem(resp.data.total_scans, resp.data.shelf, resp.data.num, resp.data.code, resp.data.created_at);
-                    } else {
-                        this.pageWorker.send(code);
-                    }
+                    panelRequest<{ data: { total_scans: number, shelf: number, num: number, code: string, created_at: string } }>(`https://api.limpiarmuebles.pro/ozon-codes`, { method: "POST", body: JSON.stringify({ store_id: this.storeId, code: code, }) }).then(resp => {
+                        console.log(resp)
+                        if (!resp.data.shelf) {
+                            (new Audio(chrome.runtime.getURL("sounds/error.mp3"))).play();
+                            return true;
+                        }
+                        if (resp.data.shelf > 0) {
+                            this.addLogItem(resp.data.total_scans, resp.data.shelf, resp.data.num, resp.data.code, resp.data.created_at);
+                        } else {
+                            this.pageWorker.send(code);
+                        }
+                    });
                 } else {
                     (new Audio(chrome.runtime.getURL("sounds/special.mp3"))).play();
                 }
             }
-            return true;
         }
         return false;
     }
