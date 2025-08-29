@@ -6,8 +6,16 @@ async function main() {
     document.addEventListener("keydown", (event) => {
         worker.keyDown(event);
     }, true);
-    window.navigation.addEventListener('navigate', (event) => {
+    window.navigation.addEventListener("navigate", (event) => {
         worker.updatePage(event.destination.url);
+    });
+    window.addEventListener("message", (e) => {
+        if (e.source !== window || !e.data || !("type" in e.data) || e.data.type !== "print") {
+            return;
+        }
+        if (worker.options.ozon_print) {
+            chrome.runtime.sendMessage(e.data);
+        }
     });
 }
 

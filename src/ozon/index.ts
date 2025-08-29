@@ -2,7 +2,7 @@ import { BarcodeType, barcodeTypes, pageTypes } from "../common";
 import getPageType from "../get-page-type";
 import PageWorker from "../page-worker";
 import ozonLearningRequest from "./ozon-learning-request";
-import ozonRequest, { ozonRequestUrl } from "./ozon-request";
+import ozonRequest from "./ozon-request";
 import panelRequest from "./panel-request";
 import * as pdfjsLib from "pdfjs-dist";
 pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL("pdf.worker.min.js");
@@ -23,8 +23,6 @@ export default class Ozon {
     ozonSearchItemTimer: NodeJS.Timeout;
     informerSuffix: string = "";
     informerButtonSuffix: string = "";
-    ozonReceiveTimer: NodeJS.Timeout;
-    ozonReceiveTimerLastItem: HTMLDivElement | null | undefined = undefined;
 
     constructor(pageWorker: PageWorker) {
         this.checkToken();
@@ -35,7 +33,6 @@ export default class Ozon {
         this.voices = speechSynthesis.getVoices().filter(s => s.lang === "ru-RU");
         this.setUserVoice();
         this.findClassNameSuffix();
-        console.log(this)
     }
     isEventIntercepted() {
         return ["ozonInventory", "ozonReceive"].includes(this.pageWorker.pageType);
@@ -230,51 +227,11 @@ export default class Ozon {
         this.lastUpdate = now;
         localStorage.setItem(`${this.storeId}-ozonLastUpdate`, now.toString());
     }
-    ozonReceiveCb() {
-        if (!this.pageWorker.options.ozon_print) {
-            return;
-        }
-        if (this.ozonReceiveTimerLastItem === undefined) {
-            this.ozonReceiveTimerLastItem = document.querySelector("[class^='_logs_']>div:first-child");
-            return
-        }
-        let next = null;
-        if (this.ozonReceiveTimerLastItem && this.ozonReceiveTimerLastItem.parentElement.classList.contains("tmp")) {
-            const logs = document.querySelectorAll<HTMLDivElement>("[class^='_logs_']>div:first-child");
-            if (logs.length > 1 && logs[0].dataset.testid === "logItemBlock") {
-                this.ozonReceiveTimerLastItem = logs[0];
-                next = this.ozonReceiveTimerLastItem;
-            } else {
-                return;
-            }
-        }
-        if (!next) {
-            next = (this.ozonReceiveTimerLastItem === null ? document.querySelector("[class^='_logs_']>div:first-child") : this.ozonReceiveTimerLastItem.previousElementSibling) as HTMLDivElement;
-        }
-        if (next && next.dataset.testid === "logItemBlock") {
-            this.ozonReceiveTimerLastItem = next;
-            const textNode = next.querySelector("[data-testid='logItemPlace']")?.textContent?.trim() ?? "";
-            const num = textNode.match(/^(\d+)-\d+$/);
-            if (num) {
-                // console.log(+num[1], next.className.includes("success"), next.className.includes("warning"));
-                chrome.runtime.sendMessage({ type: "print", payload: +num[1] });
-            }
-        }
-    }
     async updatePage(url: string) {
         const pageType = getPageType(url);
         if (this.ozonSearchItemTimer && !["ozonSearchItem", "ozonOrdersAction"].includes(pageType)) {
             clearInterval(this.ozonSearchItemTimer);
             this.ozonSearchItemTimer = null;
-        }
-        if (pageType === "ozonReceive") {
-            if (!this.ozonReceiveTimer && this.pageWorker.options.ozon_print) {
-                this.ozonReceiveTimer = setInterval(() => this.ozonReceiveCb(), 250);
-            }
-        } else if (this.ozonReceiveTimer) {
-            clearInterval(this.ozonReceiveTimer);
-            this.ozonReceiveTimer = null;
-            this.ozonReceiveTimerLastItem = undefined;
         }
         if (["ozonInventory", "ozonReceive"].includes(pageType)) {
             if (!this.loaded) {
@@ -382,7 +339,6 @@ export default class Ozon {
                 if (this.pageWorker.pageType === "ozonReceive") {
                     this.updateItems();
                     panelRequest<{ data: { total_scans: number, shelf: number, num: number, code: string, created_at: string } }>(`https://api.limpiarmuebles.pro/ozon-codes`, { method: "POST", body: JSON.stringify({ store_id: this.storeId, code: code, }) }).then(resp => {
-                        console.log(resp)
                         if (!resp.data.shelf) {
                             (new Audio(chrome.runtime.getURL("sounds/error.mp3"))).play();
                             return true;

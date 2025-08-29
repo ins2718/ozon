@@ -10,12 +10,16 @@
         "tabs",
         "activeTab",
         "storage",
-        "webRequest"
+        "webRequest",
+        "scripting"
     ],
     "background": {
         "service_worker": "background.js",
         "type": "module"
     },
+    "host_permissions": [
+        "<all_urls>"
+    ],
     "content_scripts": [
         {
             "matches": [
