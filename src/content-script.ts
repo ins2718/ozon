@@ -10,7 +10,7 @@ async function main() {
         worker.updatePage(event.destination.url);
     });
     window.addEventListener("message", (e) => {
-        if (e.source !== window || !e.data || !("type" in e.data) || e.data.type !== "print") {
+        if (e.source !== window || !e.data || typeof e.data !== "object" || !("type" in e.data) || e.data.type !== "print") {
             return;
         }
         if (worker.options.ozon_print) {
