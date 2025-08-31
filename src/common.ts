@@ -41,7 +41,7 @@ const pageTypes = {
     ozonLogin: /^https:\/\/turbo-pvz\.ozon\.ru\/ozonid\/?(?:\?.*)?$/, // озон - вход
     ozonOutbound: /^https:\/\/turbo-pvz\.ozon\.ru\/outbound(?:.*)?$/, // озон - возвраты курьеру
     ozonInventory: /^https:\/\/turbo-pvz\.ozon\.ru\/inventory(?:.*)?$/, // инвентаризация
-    ozonSearchItem: /^https:\/\/turbo-pvz\.ozon\.ru\/search\/(\d+)$/, // поиск
+    ozonSearchItem: /^https:\/\/turbo-pvz\.ozon\.ru\/search(?:.*)?$/, // поиск
     ozonStores: /^https:\/\/turbo-pvz\.ozon\.ru\/stores\/?(?:.*)?$/, // выбор пункта
 
     ozonLearning: /^https:\/\/olearning\.ozon\.ru\/program\/(\d+)-[\w-]+$/, // обучение, страница курса

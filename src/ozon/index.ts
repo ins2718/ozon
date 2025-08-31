@@ -366,14 +366,25 @@ export default class Ozon {
         }
     }
     ozonSearchItemCb() {
-        const cells = document.querySelectorAll<HTMLSpanElement>("[class^=_step_] span:nth-child(2)");
+        const cells = document.querySelectorAll<HTMLSpanElement>("[class^=_step_]>*:nth-child(2)");
         if (cells.length > 0 && this.storeId) {
             clearInterval(this.ozonSearchItemTimer);
             this.ozonSearchItemTimer = null;
             for (let cell of cells) {
-                const m = cell.innerText.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
+                let receiveDate = null;
+                let m = cell.innerText.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
                 if (m) {
-                    const receiveDate = new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:${m[6]}`);
+                    receiveDate = new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:${m[6]}`);
+                }
+                if (!m) {
+                    const months = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+                    m = cell.innerText.match(/^(\d{2})\s*([а-я]+)\s*(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
+                    const month = months.indexOf(m[2]);
+                    if (m && month !== -1) {
+                        receiveDate = new Date(`${m[3]}-${(month + 1).toString().padStart(2, "0")}-${m[1]}T${m[4]}:${m[5]}:${m[6]}`);
+                    }
+                }
+                if (receiveDate) {
                     const el = document.createElement("a");
                     el.href = `${chrome.runtime.getURL("video.html")}?store=${this.storeId}&start=${receiveDate.getTime() / 1000 | 0}`;
                     el.innerText = cell.innerText;
