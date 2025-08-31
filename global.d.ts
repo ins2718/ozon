@@ -218,6 +218,8 @@ interface OzonFinishedCarriageDocument {
 }
 
 interface OzonFinishedCarriages {
+    receivingDate: string;
+    closingDate: string;
     carriageId: number;
     postingQtyTotal: number;
     receivedPostingQtyTotal: number;

@@ -18,6 +18,7 @@ export default class Ozon {
     speechSynthesisUtterance: SpeechSynthesisUtterance = null;
     voices: SpeechSynthesisVoice[];
     lastUpdate: number = 0;
+    lastUpdateCarriages: number = 0;
     lastLearning: number = 0;
     currentScrom: string = "";
     ozonSearchItemTimer: NodeJS.Timeout;
@@ -106,6 +107,7 @@ export default class Ozon {
         const storeId = parsedItem.StoreId;
         if (storeId) {
             this.lastUpdate = +(localStorage.getItem(`${storeId}-ozonLastUpdate`) ?? "0");
+            this.lastUpdateCarriages = +(localStorage.getItem(`${storeId}-ozonLastUpdateCarriages`) ?? "0");
             this.storeId = storeId;
             this.userName = parsedItem.UserName ?? null;
         }
@@ -121,6 +123,78 @@ export default class Ozon {
         }
         return "";
     }
+    async getWarehouseRemains(): Promise<OzonWarehouseRemains> {
+        const pageSize = 1000;
+        const ret: OzonWarehouseRemains = await ozonRequest(`https://turbo-pvz.ozon.ru/api2/reports/agent/warehouse_remainsV2?filter=All&stateFilter=All&postingNumber=&take=${pageSize}&skip=0`, this.token);
+        for (let i = pageSize; i < ret.count; i += pageSize) {
+            const nextPage: OzonWarehouseRemains = await ozonRequest(`https://turbo-pvz.ozon.ru/api2/reports/agent/warehouse_remainsV2?filter=All&stateFilter=All&postingNumber=&take=${pageSize}&skip=${i}`, this.token);
+            ret.remains = ret.remains.concat(nextPage.remains);
+        }
+        return ret;
+    }
+    async getArrivals() {
+        return await ozonRequest<OzonArrival[]>("https://turbo-pvz.ozon.ru/api2/widget/widgets/arrivals", this.token);
+    }
+    async getCarriages(): Promise<OzonCarriage[]> {
+        return (await ozonRequest<OzonCarriages>("https://turbo-pvz.ozon.ru/api2/inbound/Carriages", this.token))?.carriages;
+    }
+    async getCarriagesFinished(): Promise<OzonFinishedCarriages[]> {
+        const today = new Date();
+        return (await ozonRequest<{ finishedCarriages: OzonFinishedCarriages[] }>(`https://turbo-pvz.ozon.ru/api2/inbound/Carriages/finished?limit=30&mode=All&beginDate=${(new Date(today.getTime() - 1000 * 60 * 60 * 24)).toISOString().substring(0, 10)}&endDate=${today.toISOString().substring(0, 10)}`, this.token)).finishedCarriages;
+    }
+    async getTodaysCarriages(force = false): Promise<number> {
+        const now = Date.now();
+        const interval = now - +localStorage.getItem(`${this.storeId}-lastUpdateCarriages`);
+        if (interval < 60 * 1000 || (!force && interval < 60 * 10000)) {
+            return +localStorage.getItem(`${this.storeId}-todaysCarriages`);
+        }
+        let ret = 0;
+        const carriages = await this.getCarriages();
+        for (let carriage of carriages) {
+            if (carriage.sourcePlaceName === "СПБ_ХАБ_Московское_Блок_5") {
+                ret += 1;
+            }
+        }
+        const carriagesFinished = await this.getCarriages();
+        for (let carriage of carriagesFinished) {
+            if (carriage.sourcePlaceName === "СПБ_ХАБ_Московское_Блок_5") {
+                ret += 1;
+            }
+        }
+        localStorage.setItem(`${this.storeId}-todaysCarriages`, ret.toString());
+        localStorage.setItem(`${this.storeId}-ozonLastUpdateCarriages`, now.toString());
+        return ret;
+    }
+    async getTodaysPercent(force = false): Promise<number> {
+        const now = Date.now();
+        const interval = now - +localStorage.getItem(`${this.storeId}-lastUpdateTodaysPercent`);
+        if (interval < 60 * 1000 || (!force && interval < 60 * 10000)) {
+            return +localStorage.getItem(`${this.storeId}-todaysPercent`);
+        }
+        const today = (new Date()).toISOString().substring(0, 10);
+        const arrivals = (await this.getArrivals()).find(e => e.date.substring(0, 10) === today);
+        if (!arrivals) {
+            return 0;
+        }
+        const total = arrivals.pendingPostingCount + arrivals.arrivedPostingCount;
+        const carriages = await this.getCarriages();
+        let count = 0;
+        for (const carriage of carriages) {
+            if (carriage.arrivalDate.substring(0, 10) === today) {
+                count += carriage.totalPostingsCount;
+            }
+        }
+        const carriagesFinished = await this.getCarriagesFinished();
+        for (const carriage of carriagesFinished) {
+            if (carriage.receivingDate.substring(0, 10) === today) {
+                count += carriage.postingQtyTotal;
+            }
+        }
+        const ret = count >= total ? 1 : count / total;
+        localStorage.setItem(`${this.storeId}-todaysPercent`, ret.toString());
+        localStorage.setItem(`${this.storeId}-lastUpdateTodaysPercent`, now.toString());
+        return ret;
+    }
     async updateItems(force = false) {
         const now = Date.now();
         if ((!force && now - this.lastUpdate < 60 * 10000) || (force && now - this.lastUpdate < 60 * 1000)) {
@@ -133,18 +207,16 @@ export default class Ozon {
         if (this.pageWorker.pageType === "ozonStores") {
             return;
         }
-        // const pendingArticles: OzonPendingArticles = await ozonRequest("https://turbo-pvz.ozon.ru/api/inbound/address_storage/pending-articles", token);
-        const articles: OzonWarehouseRemains = await ozonRequest("https://turbo-pvz.ozon.ru/api/reports/agent/warehouse_remainsV2?filter=All&stateFilter=All&postingNumber=&take=1000&skip=0", token);
-        // this.arrivals = await ozonRequest("https://turbo-pvz.ozon.ru/api/widget/widgets/arrivals", token);
-        const carriages = (await ozonRequest<OzonCarriages>("https://turbo-pvz.ozon.ru/api/inbound/Carriages", token))?.carriages;
+        const articles: OzonWarehouseRemains = await this.getWarehouseRemains();
+        const carriages = await this.getCarriages();
 
         const items: OzonItem[] = [];
         const extraRequests: Promise<any>[] = [];
         const requests = carriages.map(async carriage => {
-            const articles = (await ozonRequest<OzonCarriageArticles>(`https://turbo-pvz.ozon.ru/api/inbound/Carriages/${carriage.id}/content`, token))?.articles;
+            const articles = (await ozonRequest<OzonCarriageArticles>(`https://turbo-pvz.ozon.ru/api2/inbound/Carriages/${carriage.id}/content`, token))?.articles;
             for (let article of articles) {
                 if (article.type === "ArticleBoxTare") {
-                    for (let inboxArticle of (await ozonRequest<OzonCarriageArticles>(`https://turbo-pvz.ozon.ru/api/inbound/Carriages/${carriage.id}/containers/${article.id}/content`, token))?.articles) {
+                    for (let inboxArticle of (await ozonRequest<OzonCarriageArticles>(`https://turbo-pvz.ozon.ru/api2/inbound/Carriages/${carriage.id}/containers/${article.id}/content`, token))?.articles) {
                         items.push({
                             id: inboxArticle.id,
                             barcode: inboxArticle.barcode,
@@ -338,7 +410,9 @@ export default class Ozon {
             } else {
                 if (this.pageWorker.pageType === "ozonReceive") {
                     this.updateItems();
-                    panelRequest<{ data: { total_scans: number, shelf: number, num: number, code: string, created_at: string } }>(`https://api.limpiarmuebles.pro/ozon-codes`, { method: "POST", body: JSON.stringify({ store_id: this.storeId, code: code, }) }).then(resp => {
+                    (async () => {
+                        const percent = 100 * await this.getTodaysPercent();
+                        const resp = await panelRequest<{ data: { total_scans: number, shelf: number, num: number, code: string, created_at: string } }>(`https://api.limpiarmuebles.pro/ozon-codes`, { method: "POST", body: JSON.stringify({ store_id: this.storeId, code: code, percent }) });
                         if (!resp.data.shelf) {
                             (new Audio(chrome.runtime.getURL("sounds/error.mp3"))).play();
                             return true;
@@ -348,7 +422,7 @@ export default class Ozon {
                         } else {
                             this.pageWorker.send(code);
                         }
-                    });
+                    })();
                 } else {
                     (new Audio(chrome.runtime.getURL("sounds/special.mp3"))).play();
                 }
@@ -386,9 +460,9 @@ export default class Ozon {
             firstChild.dataset.testid = el.outerHTML;
             firstChild.className = el.className;
             firstChild.innerHTML = el.innerHTML;
-            if (this.pageWorker.options.ozon_print) {
-                chrome.runtime.sendMessage({ type: "print", payload: shelf });
-            }
+        }
+        if (this.pageWorker.options.ozon_print) {
+            chrome.runtime.sendMessage({ type: "print", payload: shelf });
         }
     }
     textToScpeech(text: string) {
