@@ -35,6 +35,7 @@ const pageTypes = {
     ozonOrdersSummary: /^https:\/\/turbo-pvz\.ozon\.ru\/orders\/client-new\/(\d+)\/summary\/?(?:\?.*)?$/, // озон - выдача конкретного заказа, заверщение
     ozonOrdersAction: /^https:\/\/turbo-pvz\.ozon\.ru\/orders\/client-new\/(\d+)\/?(?:\?.*)?$/, // озон - выдача конкретного заказа
     ozonReceive: /^https:\/\/turbo-pvz\.ozon\.ru\/receiving\/receive\/?(?:\?.*)?$/, // озон - приём отправлений
+    ozonReceive2: /^https:\/\/turbo-pvz\.ozon\.ru\/receiving-v2\/main\/?(?:\?.*)?$/, // озон - приём отправлений
     ozonPostings: /^https:\/\/turbo-pvz\.ozon\.ru\/receiving\/postings\/?(?:\?.*)?$/, // озон - список отправлений
     ozonReturns: /^https:\/\/turbo-pvz\.ozon\.ru\/returns-from-customer\/?(?:\?.*)?$/, // озон - возвраты
     ozonReturnsAction: /^https:\/\/turbo-pvz\.ozon\.ru\/returns-from-customer\/(\d+)\/?(?:\?.*)?$/, // озон - возвраты

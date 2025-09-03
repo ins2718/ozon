@@ -36,7 +36,7 @@ export default class Ozon {
         this.findClassNameSuffix();
     }
     isEventIntercepted() {
-        return ["ozonInventory", "ozonReceive"].includes(this.pageWorker.pageType);
+        return ["ozonInventory", "ozonReceive", "ozonReceive2"].includes(this.pageWorker.pageType);
     }
     setUserVoice() {
         const userName = JSON.parse(localStorage.getItem("pvz-access-token") ?? "{}")?.UserName;
@@ -305,7 +305,7 @@ export default class Ozon {
             clearInterval(this.ozonSearchItemTimer);
             this.ozonSearchItemTimer = null;
         }
-        if (["ozonInventory", "ozonReceive"].includes(pageType)) {
+        if (["ozonInventory", "ozonReceive", "ozonReceive2"].includes(pageType)) {
             if (!this.loaded) {
                 this.loaded = true;
                 this.updateItems();
@@ -396,7 +396,7 @@ export default class Ozon {
         }
     }
     isAccepted() {
-        return !["ozonInventory", "ozonReceive"].includes(this.pageWorker.pageType) || document.activeElement?.tagName === "INPUT";
+        return !["ozonInventory", "ozonReceive", "ozonReceive2"].includes(this.pageWorker.pageType) || document.activeElement?.tagName === "INPUT";
     }
     findOzonItem(code: string) {
         const result = this.ozonItems.find(item => code === item.barcode || code === item.id.toString() || code === item.name);
@@ -419,7 +419,7 @@ export default class Ozon {
             if (found) {
                 this.pageWorker.send(code);
             } else {
-                if (this.pageWorker.pageType === "ozonReceive") {
+                if (["ozonReceive", "ozonReceive2"].includes(this.pageWorker.pageType)) {
                     this.updateItems();
                     (async () => {
                         const percent = 100 * await this.getTodaysPercent();
